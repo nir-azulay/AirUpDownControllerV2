@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>ESP32 Web Server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" type="text/css" href="update.css" />
+  <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
+  <script type="text/javascript" src="configurations.js"></script>
+</head>
+
+<body onload="{onloadPage();}"">
+  <title>CONFIGURATIONS</title>
+  <h1>Configurations</h1>
+  <form name="settingsForm" id = "settingsForm">
+    <input type="hidden" id="txt_values" value="%STATE%"></input>
+    <table>
+      <tr>
+        <td width="30%">
+          <label>version </label>
+        </td>
+        <td>
+          <label id="lbl_version"></label>
+        </td>
+        <td width="25px"></td>
+      </tr>
+      <tr>
+        <td>
+          <label >DeviceName name</label>
+        </td>
+        <td>
+          <input class="input" id="txt_DeviceName" type="text" />
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label>wifi ssid</label>
+        </td>
+        <td>
+          <input class="input" id="txt_wifissid" type="text" />
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label>wifi password</label>
+        </td>
+        <td>
+          <input class="input" id="txt_wifipassword" type="password" />
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label>Relay Compressor Pin</label>
+        </td>
+        <td>
+          <input class="input" id="txt_RelayCompressorPin" type="text" />
+        </td>
+      </tr>    
+      <tr>
+        <td>
+          <label>Relay Free Pin</label>
+        </td>
+          
+        <td>
+          <input class="input" id="txt_RelayFreePin" type="text" />
+        </td>
+      </tr>            
+      <tr>
+        <td>
+          <label>Sensor Pin</label>
+        </td>
+          
+        <td>
+          <input class="input" id="txt_SensorPin" type="text" />
+        </td>
+      </tr> 
+      <tr>
+        <td>
+          <label>Auto Start</label>
+        </td>
+          
+        <td>
+          <input class="input" id="txt_AutoStart" type="text" />
+        </td>
+      </tr> 
+      <tr>
+        <td>
+          <label>Max Sec For Status</label>
+        </td>
+          
+        <td>
+          <input class="input" id="txt_MaxSecForStatus" type="text" />
+        </td>
+      </tr> 
+      <tr>
+        <td>
+          <label>Sensor Value At 10PSI</label>
+        </td>
+          
+        <td>
+          <input class="input" id="txt_SensorValueAt10PSI" type="text" />
+        </td>
+      </tr> 
+      <tr>
+        <td>
+          <label>Sensor Value At 40PSI</label>
+        </td>
+          
+        <td>
+          <input class="input" id="txt_SensorValueAt40PSI" type="text" />
+        </td>
+      </tr> 
+      <tr>
+        <td>
+          <label>BT Pin Code</label>
+        </td>
+          
+        <td>
+          <input class="input" id="txt_BTPinCode" type="text" />
+        </td>
+      </tr>       
+    </table>
+    <tr>
+      <td colspan="2">
+          <input type="button" class="btn" onclick="{saveSettings(form)};" value = "Save Settings" id="btnSave"/>          
+          <input type="button" class="btn" onclick="location.href='/';" value="Main page"/>
+      </td>
+    </tr>
+  </form>
+</body>
+</html>

@@ -1,0 +1,49 @@
+{
+    function onloadPage() 
+    {
+      fillValues(document.getElementById("txt_values").value);
+    }
+
+    function fillValues(values) {
+      var aValues = values.split(";");
+      document.getElementById("txt_DeviceName").value = aValues[0];
+      document.getElementById("txt_wifissid").value = aValues[1];
+      document.getElementById("txt_wifipassword").value = aValues[2];
+      document.getElementById("txt_RelayCompressorPin").value = aValues[3];
+      document.getElementById("txt_RelayFreePin").value = aValues[4];
+      document.getElementById("txt_SensorPin").value = aValues[5];
+      document.getElementById("txt_AutoStart").value = aValues[6];
+      document.getElementById("txt_MaxSecForStatus").value = aValues[9];
+      document.getElementById("txt_SensorValueA10PSI").value = aValues[10];
+      document.getElementById("txt_SensorValueAt40PSI").value = aValues[11];
+      document.getElementById("txt_BTPinCode").value = aValues[12];            
+      document.getElementById("lbl_version").innerHTML = aValues[13];
+    }
+
+    function saveSettings()
+    {
+      var params = new URLSearchParams({
+      DeviceName: document.getElementById("txt_DeviceName").value,
+      wifissid: document.getElementById("txt_wifissid").value,
+      wifipassword: document.getElementById("txt_wifipassword").value,
+      RelayCompressorPin: document.getElementById("txt_RelayCompressorPin").value,
+      RelayFreePin: document.getElementById("txt_RelayFreePin").value,
+      SensorPin: document.getElementById("txt_SensorPin").value,
+      AutoStart: document.getElementById("txt_AutoStart").value,
+      SensorCorrectionFactor: document.getElementById("txt_SensorCorrectionFactor").value,
+      VoltCorrection: document.getElementById("txt_VoltCorrection").value,
+      MaxSecForStatus: document.getElementById("txt_MaxSecForStatus").value,
+      SensorValueAt10PSI: document.getElementById("txt_SensorValueAt10PSI").value,
+      SensorValueAt40PSI: document.getElementById("txt_SensorValueAt40PSI").value,
+      BTPinCode: document.getElementById("txtBTPinCode").value});
+                          
+      var urlwithQS = "/updateSettings?" + params.toString();
+      
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", urlwithQS, false);       
+      xhr.send();
+      console.log('success!');
+      alert("settings Successfully updated");
+      setTimeout("location.href = '../';", 2000);
+    }
+}

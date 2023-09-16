@@ -1,0 +1,252 @@
+input {
+    background: #f1f1f1;
+    border: 0;
+    padding: 0 15px
+}
+
+body {
+    background: #00acc1;
+    font-family: sans-serif;
+    font-size: 14px;
+    color: #777
+}
+
+#file-input,
+input {
+    height: 44px;
+    border-radius: 4px;
+    margin: 10px auto;
+    font-size: 15px
+}
+
+#file-input {
+    padding: 0 10px;
+    box-sizing: border-box;
+    border: 1px solid #ddd;
+    line-height: 44px;
+    text-align: left;
+    display: block;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#bar,
+#prgbar {
+    background-color: #f1f1f1;
+    border-radius: 10px
+}
+
+#bar {
+    background-color: #00acc1;
+    width: 0;
+    height: 10px;
+}
+
+form {
+    background: #fff;
+    max-width: 400px;
+    margin: 35px auto;
+    padding: 35px;
+    padding-bottom: 30px;
+    border: 1px solid #00acc1;
+    border-radius: 5px;
+    text-align: center;
+    align-content: center;
+}
+
+.btn {
+    background-color: #00acc1;
+    box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.08), 0 0 15px 0 rgba(0, 0, 0, 0.02), 0 0 20px 4px rgba(0, 0, 0, 0.06);
+    color: white;
+    border-radius: 4px;
+    padding: 9px 16px;
+    background-image: none;
+    text-decoration: none;
+    border: none;
+    letter-spacing: 1.25px;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-size: 14px;
+    line-height: 18px;
+    display: inline-block;
+    vertical-align: middle;
+    transition-duration: 0.1s;
+}
+
+.btn:hover {
+    background-color: #0097a7;
+    box-shadow: 0px 2px 4px -1px rgba(0, 0, 0, 0.2), 0px 4px 5px 0px rgba(0, 0, 0, 0.14), 0px 1px 10px 0px rgba(0, 0, 0, .12);
+}
+
+.btn:visited {
+    color: white;
+}
+
+.btn:focus {
+    outline: none;
+}
+
+.btn:active {
+    color: white;
+    background-color: #007c91;
+}
+
+.btn2 {
+    background-color: #e29425;
+    box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.08), 0 0 15px 0 rgba(0, 0, 0, 0.02), 0 0 20px 4px rgba(0, 0, 0, 0.06);
+    color: white;
+    border-radius: 4px;
+    padding: 9px 16px;
+    background-image: none;
+    text-decoration: none;
+    border: none;
+    letter-spacing: 1.25px;
+    cursor: pointer;
+    text-transform: uppercase;
+    font-size: 14px;
+    line-height: 18px;
+    display: inline-block;
+    vertical-align: middle;
+    transition-duration: 0.1s;
+}
+
+.btn2:hover:enabled {
+    background-color: #d68a1d;
+    box-shadow: 0px 2px 4px -1px rgba(0, 0, 0, 0.2), 0px 4px 5px 0px rgba(0, 0, 0, 0.14), 0px 1px 10px 0px rgba(0, 0, 0, .12);
+}
+
+.btn2:visited {
+    color: white;
+}
+
+.btn2:focus {
+    outline: none;
+}
+
+.btn2:active {
+    color: white;
+    background-color: #ca7125;
+}
+
+.btn2:disabled {
+    cursor: default;
+    background: #DDD;
+}
+
+.btndel {
+    border: none;
+    color: white;
+    padding: 0px 6px;
+    height: 25px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 14px;
+    margin: 2px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    background-color: #e03423db;
+    transition-duration: 0.1s;
+}
+
+.btndel:hover {
+    background-color: #b02f19;
+    box-shadow: 0px 1px 3px -1px rgba(0, 0, 0, 0.2), 0px 4px 5px 0px rgba(0, 0, 0, 0.14), 0px 1px 10px 0px rgba(0, 0, 0, .12);
+}
+
+.btndel:visited {
+    color: white;
+}
+
+.btndel:active {
+    color: white;
+    background-color: #db331d;
+}
+
+html {
+    font-family: Roboto, Arial, sans-serif;
+    display: inline-block;
+    margin: 0px auto;
+    text-align: center;
+}
+
+h2 {
+    font-size: 3.0rem;
+    font-family: Arial;
+    text-align: center;
+    font-weight: normal;
+    color: #fafcfc;
+}
+
+p {
+    font-size: 3.0rem;
+    margin-top: 0;
+}
+
+.units {
+    font-size: 1.2rem;
+}
+
+.dht-labels {
+    font-size: 1.5rem;
+    vertical-align: middle;
+    padding-bottom: 15px;
+    font-weight: normal;
+    color: #333333;
+}
+
+table,
+th,
+td {
+    font-family: arial;
+    border-collapse: collapse;
+    border: 1px solid #dddddd;
+
+
+}
+
+th,
+td {
+    padding: 10px;
+}
+
+tr:nth-child(odd) {
+    background-color: #edebeb;
+
+}
+
+tr:nth-child(1) {
+    background-color: #edebeb;
+}
+
+th:nth-child(2) {
+    text-align: left;
+
+}
+
+/* nth-child(1) = the first td in each tr */
+td:nth-child(1) {
+    column-width: 30px;
+    text-align: center;
+}
+
+/* the second */
+td:nth-child(2) {
+    column-width: 175px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* the third */
+td:nth-child(3) {
+    column-width: 100px;
+    text-align: center;
+}
+
+td:nth-child(4) {
+    column-width: 30px;
+    text-align: center;
+}
