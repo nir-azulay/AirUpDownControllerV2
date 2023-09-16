@@ -53,7 +53,7 @@ const int AIR_PRESSURE_SENSOR_MAX_MPA = 0.5;
 double pressureCurrectionFactor = 1;
 double voltCurrection = 0.47;
 int maxSecForStatus = 10;
-String device_name = "ESP32-BT-AirDownUp-Controller";
+//String device_name = "ESP32-BT-AirDownUp-Controller";
 
 // Global variables
 double currentPressure = 0;
@@ -66,13 +66,21 @@ DeviceSettings settings; // <- global settingsuration object
 bool simulationMode = true;
 int iSimulationCounter = 0;
 
-#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
-#error Bluetooth is not enabled! Please run `make menusettings` to and enable it
+#if defined(CONFIG_CLASSIC_BT_ENABLED)
+#define BT_MODE ESP_BT_MODE_CLASSIC_BT
+#elif defined(CONFIG_BT_BLE_ENABLED)
+#define BT_MODE ESP_BT_MODE_BLE
+#else
+#define BT_MODE ESP_BT_MODE_BTDM
 #endif
 
-#if !defined(CONFIG_BT_SPP_ENABLED)
-#error Serial Bluetooth not available or not enabled. It is only available for the ESP32 chip.
-#endif
+// #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+// #error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
+// #endif
+
+// #if !defined(CONFIG_BT_SPP_ENABLED)
+// #error Serial Bluetooth not available or not enabled. It is only available for the ESP32 chip.
+// #endif
 
 BluetoothSerial SerialBT;
 
@@ -300,10 +308,10 @@ void saveSettings(AsyncWebServerRequest *request)
         else if (paramName == "SensorPin")
             settings.SensorPin = p->value().toInt();
         else if (paramName == "AutoStart")
-            {
-            String sAutoStart= p->value();
+        {
+            String sAutoStart = p->value();
             settings.AutoStart = sAutoStart.equalsIgnoreCase("true");
-            }
+        }
         else if (paramName == "MaxSecForStatus")
             settings.MaxSecForStatus = p->value().toInt();
         else if (paramName == "SensorValueAt10PSI")
@@ -577,7 +585,7 @@ void loadSettingsfile()
 
 void saveSettingFile()
 {
-
+    Serial.println("saveSettingFile");
     DynamicJsonDocument doc(1024);
 
     doc["DeviceName"] = settings.DeviceName;
@@ -630,7 +638,17 @@ void printSettingsFile()
     }
     file.close();
 }
-
+void setupBlueTooth()
+{
+    // BT sets
+    Serial.printf("The device with name \"%s\" is started.\nNow you can pair it with Bluetooth!\n", settings.DeviceName.c_str());
+    if (settings.BTPinCode.length()>0)
+    {
+        //SerialBT.setPin(settings.BTPinCode.c_str());
+        Serial.println("Using PIN");
+    }
+    SerialBT.begin(settings.DeviceName); // Bluetooth device name
+}
 //========================
 #pragma endregion settings
 
@@ -645,14 +663,8 @@ void setup()
     client.setInsecure(); // skip verification
     Serial.print("setup() running on core ");
     Serial.println(xPortGetCoreID());
-
-    // BT sets
-    Serial.printf("The device with name \"%s\" is started.\nNow you can pair it with Bluetooth!\n", device_name.c_str());
-#ifdef USE_PIN
-    SerialBT.setPin(pin);
-    Serial.println("Using PIN");
-#endif
-    SerialBT.begin(device_name); // Bluetooth device name
+    setupBlueTooth();
+    
     // initiate relays Legs
     pinMode(settings.RelayCompressorPin, OUTPUT);
     pinMode(settings.RelayFreePin, OUTPUT);
@@ -667,7 +679,7 @@ void setup()
 
 void loop()
 {
-    Serial.print("loop: ");
+    //Serial.print("loop: ");
     // skip x tiks to avoid reading presure every loop
     if (tikingCounter == 0)
         readCurrentPressure();
@@ -686,8 +698,8 @@ void loop()
     if (tikingCounter > calculateDelatFactor())
         tikingCounter = 0;
 
-    Serial.print(" tikingCounter =: ");
-    Serial.println(tikingCounter);
+    //Serial.print(" tikingCounter =: ");
+    //Serial.println(tikingCounter);
 }
 
 float readPressureFromSensor()
@@ -751,7 +763,7 @@ void readCurrentPressure()
 
 void StopAir()
 {
-    Serial.print(" StopAir Started ");
+    //Serial.print(" StopAir Started ");
     operationMode = Stop;
     digitalWrite(settings.RelayCompressorPin, HIGH);
     digitalWrite(settings.RelayFreePin, HIGH);
@@ -793,8 +805,10 @@ void OperateAir()
 
 void SendStatusToMobile()
 {
-    Serial.print(" SendStatusToMobile started ");
+
     if (currentPressure > 0)
+
+        Serial.print(" SendStatusToMobile started ");
     {
         double toSend = currentPressure;
         // if need  to send also stop mode will add - to the value (signal)
@@ -805,18 +819,19 @@ void SendStatusToMobile()
 
         Serial.print("SendStatusToMobile: ");
         Serial.print(toSend);
+        Serial.println(" SendStatusToMobile dinished");
     }
-    Serial.println(" SendStatusToMobile dinished");
 }
 
 void SyncWithBlueToothDevice()
 {
-    Serial.print("SyncWithBlueToothDevice started ");
+
     if (SerialBT.connected())
     {
         // read from application the target Pressure
         if (SerialBT.available())
         {
+            Serial.print("SyncWithBlueToothDevice started ");
             String sMessage = SerialBT.readString();
             String sTargetPressure;
             Serial.print("sMessage: ");
@@ -825,72 +840,76 @@ void SyncWithBlueToothDevice()
             Serial.print(sMessage.charAt(0));
             switch (sMessage.charAt(0))
             {
-            case 'T':
-            {
-                sTargetPressure = sMessage.substring(1, sMessage.length());
-                Serial.print(" Target Pressure string: ");
-                Serial.print(sTargetPressure);
-                // if got new target than change setting
-                targetPressure = sTargetPressure.toDouble();
-                Serial.print(" Target Pressure: ");
-                Serial.print(targetPressure);
-                if (targetPressure > 0)
+                case 'T':
                 {
-                    OperateAir();
+                    sTargetPressure = sMessage.substring(1, sMessage.length());
+                    Serial.print(" Target Pressure string: ");
+                    Serial.print(sTargetPressure);
+                    // if got new target than change setting
+                    targetPressure = sTargetPressure.toDouble();
+                    Serial.print(" Target Pressure: ");
+                    Serial.print(targetPressure);
+                    if (targetPressure > 0)
+                    {
+                        OperateAir();
+                    }
+                    else
+                    {
+                        targetPressure = abs(targetPressure);
+                        StopAir();
+                    }
+                    break;
                 }
-                else
+                case '{': // setting starting with wifissid:
                 {
-                    targetPressure = abs(targetPressure);
-                    StopAir();
+                    DynamicJsonDocument doc(1024);
+                    deserializeJson(doc, sMessage);
+
+                    Serial.println("lodaing json from app : " + sMessage);
+
+                    settings.DeviceName = doc["DeviceName"].as<String>();
+                    settings.wifissid = doc["wifissid"].as<String>();
+                    settings.wifipassword = doc["wifipassword"].as<String>();
+                    settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
+                    settings.RelayFreePin = doc["RelayFreePin"].as<int>();
+                    settings.SensorPin = doc["SensorPin"].as<int>();
+                    settings.AutoStart = (bool)doc["AutoStart"];
+                    settings.SensorValueAt10PSI = doc["SensorValueAt10PSI"].as<int>();
+                    settings.SensorValueAt40PSI = doc["SensorValueAt40PSI"].as<int>();
+                    settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
+                    settings.BTPinCode = doc["BTPinCode"] | "1234";
+
+                    Serial.println("settings.BTPinCode : " + settings.BTPinCode);
+
+                    saveSettingFile();
+                    break;
                 }
-                break;
+                default:
+                {
+                    // statements
+                    Serial.print("Empty Switch case: ");
+                    break;
+                }
             }
-            case 'w': // setting starting with wifissid:
-            {
-                DynamicJsonDocument doc(1024);
-                deserializeJson(doc, sMessage);
-
-                settings.DeviceName = doc["DeviceName"].as<String>();
-                settings.wifissid = doc["wifissid"].as<String>();
-                settings.wifipassword = doc["wifipassword"].as<String>();
-                settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
-                settings.RelayFreePin = doc["RelayFreePin"].as<int>();
-                settings.SensorPin = doc["SensorPin"].as<int>();
-                settings.AutoStart = (bool)doc["AutoStart"];
-                settings.SensorValueAt10PSI = doc["SensorValueAt10PSI"].as<int>();
-                settings.SensorValueAt40PSI = doc["SensorValueAt40PSI"].as<int>();
-                settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
-                settings.BTPinCode = doc["BTPinCode"] | "1234";
-
-                saveSettingFile();
-                break;
-            }
-            default:
-            {
-                // statements
-                Serial.print("Empty Switch case: ");
-                break;
-            }
-            }
+            Serial.println(" SyncWithBlueToothDevice finished");
         }
         // send current Pressure to application
         SendStatusToMobile();
     }
-    Serial.println(" SyncWithBlueToothDevice finished");
 }
 
 double calculateDelatFactor()
 {
     // every PSI is 1 5 sec
-    Serial.print("calculateDelatFactor started ");
-    Serial.print("currentPressure: ");
-    Serial.print(currentPressure);
-    Serial.print(" targetPressure: ");
-    Serial.print(targetPressure);
+    // Serial.print("calculateDelatFactor started ");
+    // Serial.print("currentPressure: ");
+    // Serial.print(currentPressure);
+    // Serial.print(" targetPressure: ");
+    // Serial.print(targetPressure);
 
     double factor = abs(targetPressure - currentPressure) * 5;
-    Serial.print(" calculateDelatFactor: ");
-    Serial.print(factor);
+    // Serial.print(" calculateDelatFactor: ");
+    // Serial.print(factor);
 
     if (factor == 0 || factor < 1)
         factor = 5;
@@ -898,8 +917,8 @@ double calculateDelatFactor()
     if (factor > settings.MaxSecForStatus)
         factor = settings.MaxSecForStatus;
 
-    Serial.print(" calculateDelatFactor: ");
-    Serial.println(factor);
+    // Serial.print(" calculateDelatFactor: ");
+    // Serial.println(factor);
 
     return factor;
 }
