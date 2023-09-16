@@ -9,7 +9,6 @@
 #include <WiFiUdp.h>
 #include <WebServer.h>
 // #include <ESPmDNS.h>
-
 #include <Update.h>
 #include "main.h"
 #include "SPIFFS.h"
@@ -271,7 +270,8 @@ String getSettingsParams(const String &var)
 {
 
     Serial.println(var);
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + Software_VER};
+
+    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt10PSI + ";" + settings.SensorValueAt40PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + Software_VER};
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -299,9 +299,24 @@ void saveSettings(AsyncWebServerRequest *request)
             settings.RelayFreePin = p->value().toInt();
         else if (paramName == "SensorPin")
             settings.SensorPin = p->value().toInt();
+        else if (paramName == "AutoStart")
+            {
+            String sAutoStart= p->value();
+            settings.AutoStart = sAutoStart.equalsIgnoreCase("true");
+            }
+        else if (paramName == "MaxSecForStatus")
+            settings.MaxSecForStatus = p->value().toInt();
+        else if (paramName == "SensorValueAt10PSI")
+            settings.SensorValueAt10PSI = p->value().toInt();
+        else if (paramName == "SensorValueAt40PSI")
+            settings.SensorValueAt40PSI = p->value().toInt();
+        else if (paramName == "BTPinCode")
+            settings.BTPinCode = p->value().toInt();
+        else if (paramName == "MessureWait")
+            settings.MessureWait = p->value().toDouble();
     }
 
-    Serial.print("settings.DeviceName");
+    Serial.print("settings.DeviceName=");
     Serial.println(settings.DeviceName);
 
     saveSettingFile();
@@ -810,52 +825,52 @@ void SyncWithBlueToothDevice()
             Serial.print(sMessage.charAt(0));
             switch (sMessage.charAt(0))
             {
-                case 'T':
+            case 'T':
+            {
+                sTargetPressure = sMessage.substring(1, sMessage.length());
+                Serial.print(" Target Pressure string: ");
+                Serial.print(sTargetPressure);
+                // if got new target than change setting
+                targetPressure = sTargetPressure.toDouble();
+                Serial.print(" Target Pressure: ");
+                Serial.print(targetPressure);
+                if (targetPressure > 0)
                 {
-                    sTargetPressure = sMessage.substring(1, sMessage.length());
-                    Serial.print(" Target Pressure string: ");
-                    Serial.print(sTargetPressure);
-                    // if got new target than change setting
-                    targetPressure = sTargetPressure.toDouble();
-                    Serial.print(" Target Pressure: ");
-                    Serial.print(targetPressure);
-                    if (targetPressure > 0)
-                    {
-                        OperateAir();
-                    }
-                    else
-                    {
-                        targetPressure = abs(targetPressure);
-                        StopAir();
-                    }
-                    break;
+                    OperateAir();
                 }
-                case 'w': // setting starting with wifissid:
+                else
                 {
-                    DynamicJsonDocument doc(1024);
-                    deserializeJson(doc, sMessage);
+                    targetPressure = abs(targetPressure);
+                    StopAir();
+                }
+                break;
+            }
+            case 'w': // setting starting with wifissid:
+            {
+                DynamicJsonDocument doc(1024);
+                deserializeJson(doc, sMessage);
 
-                    settings.DeviceName = doc["DeviceName"].as<String>();
-                    settings.wifissid = doc["wifissid"].as<String>();
-                    settings.wifipassword = doc["wifipassword"].as<String>();
-                    settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
-                    settings.RelayFreePin = doc["RelayFreePin"].as<int>();
-                    settings.SensorPin = doc["SensorPin"].as<int>();
-                    settings.AutoStart = (bool)doc["AutoStart"];
-                    settings.SensorValueAt10PSI = doc["SensorValueAt10PSI"].as<int>();
-                    settings.SensorValueAt40PSI = doc["SensorValueAt40PSI"].as<int>();
-                    settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
-                    settings.BTPinCode = doc["BTPinCode"] | "1234";
+                settings.DeviceName = doc["DeviceName"].as<String>();
+                settings.wifissid = doc["wifissid"].as<String>();
+                settings.wifipassword = doc["wifipassword"].as<String>();
+                settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
+                settings.RelayFreePin = doc["RelayFreePin"].as<int>();
+                settings.SensorPin = doc["SensorPin"].as<int>();
+                settings.AutoStart = (bool)doc["AutoStart"];
+                settings.SensorValueAt10PSI = doc["SensorValueAt10PSI"].as<int>();
+                settings.SensorValueAt40PSI = doc["SensorValueAt40PSI"].as<int>();
+                settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
+                settings.BTPinCode = doc["BTPinCode"] | "1234";
 
-                    saveSettingFile();
-                    break;
-                }
-                default:
-                {
-                    // statements
-                    Serial.print("Empty Switch case: ");
-                    break;
-                }
+                saveSettingFile();
+                break;
+            }
+            default:
+            {
+                // statements
+                Serial.print("Empty Switch case: ");
+                break;
+            }
             }
         }
         // send current Pressure to application

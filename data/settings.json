@@ -1,7 +1,7 @@
 {
     "DeviceName": "ESP32-BT-AirDownUp-Controller",
     "wifissid": "",
-    "wifipassword": "12345678",    
+    "wifipassword": "",    
     "RelayCompressorPin": 25,
     "RelayFreePin": 26,
     "SensorPin": 34,
@@ -10,5 +10,5 @@
     "SensorValueAt10PSI": 1345,
     "SensorValueAt40PSI": 2894,
     "BTPinCode": "1234",
-    "MessureWait": 2
+    "MessureWait": 1
 }

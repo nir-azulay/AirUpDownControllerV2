@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/github/AirUpDownControllerV2/.pio/libdeps/vintlabs-devkit-v1/ArduinoJson"
+    "cmake.sourceDirectory": "C:/github/AirUpDownControllerV2/.pio/libdeps/vintlabs-devkit-v1/ArduinoJson",
+    "idf.portWin": "COM6"
 }

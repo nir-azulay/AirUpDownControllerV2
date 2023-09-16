@@ -12,12 +12,13 @@
       document.getElementById("txt_RelayCompressorPin").value = aValues[3];
       document.getElementById("txt_RelayFreePin").value = aValues[4];
       document.getElementById("txt_SensorPin").value = aValues[5];
-      document.getElementById("txt_AutoStart").value = aValues[6];
-      document.getElementById("txt_MaxSecForStatus").value = aValues[9];
-      document.getElementById("txt_SensorValueA10PSI").value = aValues[10];
-      document.getElementById("txt_SensorValueAt40PSI").value = aValues[11];
-      document.getElementById("txt_BTPinCode").value = aValues[12];            
-      document.getElementById("lbl_version").innerHTML = aValues[13];
+      document.getElementById("chk_AutoStart").checked = (aValues[6]=="1");
+      document.getElementById("txt_MaxSecForStatus").value = aValues[7];
+      document.getElementById("txt_SensorValueAt10PSI").value = aValues[8];
+      document.getElementById("txt_SensorValueAt40PSI").value = aValues[9];
+      document.getElementById("txt_BTPinCode").value = aValues[10];        
+      document.getElementById("txt_MessureWait").value = aValues[11];        
+      document.getElementById("lbl_version").innerHTML = aValues[12];
     }
 
     function saveSettings()
@@ -29,14 +30,13 @@
       RelayCompressorPin: document.getElementById("txt_RelayCompressorPin").value,
       RelayFreePin: document.getElementById("txt_RelayFreePin").value,
       SensorPin: document.getElementById("txt_SensorPin").value,
-      AutoStart: document.getElementById("txt_AutoStart").value,
-      SensorCorrectionFactor: document.getElementById("txt_SensorCorrectionFactor").value,
-      VoltCorrection: document.getElementById("txt_VoltCorrection").value,
+      AutoStart: document.getElementById("chk_AutoStart").checked,
       MaxSecForStatus: document.getElementById("txt_MaxSecForStatus").value,
       SensorValueAt10PSI: document.getElementById("txt_SensorValueAt10PSI").value,
       SensorValueAt40PSI: document.getElementById("txt_SensorValueAt40PSI").value,
-      BTPinCode: document.getElementById("txtBTPinCode").value});
-                          
+      BTPinCode: document.getElementById("txt_BTPinCode").value,
+      MessureWait: document.getElementById("txt_MessureWait").value});
+                                      
       var urlwithQS = "/updateSettings?" + params.toString();
       
       var xhr = new XMLHttpRequest();
