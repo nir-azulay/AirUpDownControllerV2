@@ -284,6 +284,31 @@ String getSettingsParams(const String &var)
     return status;
 }
 
+String getSettingsXML()
+{
+
+    String XML = "<settings>";
+    XML += "<DeviceName>" + settings.DeviceName + "</DeviceName>";
+    XML += "<wifissid>" + settings.wifissid + "</wifissid>";
+    XML += "<wifipassword>" + settings.wifipassword + "</wifipassword>";
+    XML += "<RelayCompressorPin>" + String(settings.RelayCompressorPin) + "</RelayCompressorPin>";
+    XML += "<RelayFreePin>" + String(settings.RelayFreePin) + "</RelayFreePin>";
+    XML += "<SensorPin>" + String(settings.SensorPin) + "</SensorPin>";
+    XML += "<AutoStart>" + String(settings.AutoStart) + "</AutoStart>";
+    XML += "<MaxSecForStatus>" + String(settings.MaxSecForStatus) + "</MaxSecForStatus>";
+    XML += "<SensorValueAt10PSI>" + String(settings.SensorValueAt10PSI) + "</SensorValueAt10PSI>";
+    XML += "<SensorValueAt40PSI>" + String(settings.SensorValueAt40PSI) + "</SensorValueAt40PSI>";
+    XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
+    XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
+    XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
+    XML += "<Software_VER>" + String(Software_VER) + "</Software_VER>";
+    XML += "</settings>";
+
+    Serial.println("getSettingsXML: " + XML);
+    return XML;
+}
+
+
 void saveSettings(AsyncWebServerRequest *request)
 {
     Serial.println("saveSettings");
@@ -648,6 +673,7 @@ void setupBlueTooth()
         Serial.println("Using PIN");
     }
     SerialBT.begin(settings.DeviceName); // Bluetooth device name
+    SendSettingsToMobile();
 }
 //========================
 #pragma endregion settings
@@ -815,13 +841,31 @@ void SendStatusToMobile()
         if (operationMode == Stop)
             toSend = toSend * -1;
 
-        SerialBT.print(toSend, 1);
+        //SerialBT.print(toSend, 1);
 
         Serial.print("SendStatusToMobile: ");
         Serial.print(toSend);
-        Serial.println(" SendStatusToMobile dinished");
+        Serial.println(" SendStatusToMobile finished");
     }
 }
+
+void SendSettingsToMobile()
+{
+
+    Serial.print(" SendSettingsToMobile started ");
+    {
+        String  toSend =  getSettingsXML();
+
+
+        // if need  to send also stop mode will add - to the value (signal)
+        SerialBT.println(toSend);
+
+        
+        Serial.print(toSend);
+        Serial.println(" SendSettingsToMobile dinished");
+    }
+}
+
 
 void SyncWithBlueToothDevice()
 {
@@ -894,7 +938,8 @@ void SyncWithBlueToothDevice()
             Serial.println(" SyncWithBlueToothDevice finished");
         }
         // send current Pressure to application
-        SendStatusToMobile();
+        //SendStatusToMobile();
+        SendSettingsToMobile();
     }
 }
 

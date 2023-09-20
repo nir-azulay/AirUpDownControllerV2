@@ -21,3 +21,5 @@ void loadSettingsfile();
 void InflateAir();
 
 void DeflateAir();
+
+void SendSettingsToMobile();
