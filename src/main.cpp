@@ -45,9 +45,9 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
 // Consts Declartions
 #define USE_PIN           // Uncomment this to use PIN during pairing. The pin is specified on the line below
 const char *pin = "1234"; // Change this to more secure PIN.
-const int RELAY_COMPRESSOR_PIN = 25;
-const int RELAY_FREE_PIN = 26;
-const int SENSOR_PIN = 27;
+const int RELAY_COMPRESSOR_PIN = 16;
+const int RELAY_FREE_PIN = 17;
+const int SENSOR_PIN = 32;
 
 const int AIR_PRESSURE_SENSOR_MAX_MPA = 0.5;
 double pressureCurrectionFactor = 1;
@@ -279,7 +279,7 @@ String getSettingsParams(const String &var)
 
     Serial.println(var);
 
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt10PSI + ";" + settings.SensorValueAt40PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + Software_VER};
+    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + Software_VER};
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -296,8 +296,8 @@ String getSettingsXML()
     XML += "<SensorPin>" + String(settings.SensorPin) + "</SensorPin>";
     XML += "<AutoStart>" + String(settings.AutoStart) + "</AutoStart>";
     XML += "<MaxSecForStatus>" + String(settings.MaxSecForStatus) + "</MaxSecForStatus>";
-    XML += "<SensorValueAt10PSI>" + String(settings.SensorValueAt10PSI) + "</SensorValueAt10PSI>";
-    XML += "<SensorValueAt40PSI>" + String(settings.SensorValueAt40PSI) + "</SensorValueAt40PSI>";
+    XML += "<SensorValueAt0PSI>" + String(settings.SensorValueAt0PSI) + "</SensorValueAt0PSI>";
+    XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI) + "</SensorValueAt50PSI>";
     XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
     XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
     XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
@@ -339,10 +339,10 @@ void saveSettings(AsyncWebServerRequest *request)
         }
         else if (paramName == "MaxSecForStatus")
             settings.MaxSecForStatus = p->value().toInt();
-        else if (paramName == "SensorValueAt10PSI")
-            settings.SensorValueAt10PSI = p->value().toInt();
-        else if (paramName == "SensorValueAt40PSI")
-            settings.SensorValueAt40PSI = p->value().toInt();
+        else if (paramName == "SensorValueAt0PSI")
+            settings.SensorValueAt0PSI = p->value().toInt();
+        else if (paramName == "SensorValueAt50PSI")
+            settings.SensorValueAt50PSI = p->value().toInt();
         else if (paramName == "BTPinCode")
             settings.BTPinCode = p->value().toInt();
         else if (paramName == "MessureWait")
@@ -598,8 +598,8 @@ void loadSettingsfile()
     settings.RelayFreePin = doc["RelayFreePin"].as<int>();
     settings.SensorPin = doc["SensorPin"].as<int>();
     settings.AutoStart = (bool)doc["AutoStart"];
-    settings.SensorValueAt10PSI = doc["SensorValueAt10PSI"].as<int>();
-    settings.SensorValueAt40PSI = doc["SensorValueAt40PSI"].as<int>();
+    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
+    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
     settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
     settings.BTPinCode = doc["BTPinCode"] | "1234";
     settings.MessureWait = doc["MessureWait"].as<int>() | 2;
@@ -621,8 +621,8 @@ void saveSettingFile()
     doc["SensorPin"] = settings.SensorPin;
     doc["AutoStart"] = settings.AutoStart;
     doc["MaxSecForStatus"] = settings.MaxSecForStatus;
-    doc["SensorValueAt10PSI"] = settings.SensorValueAt10PSI;
-    doc["SensorValueAt40PSI"] = settings.SensorValueAt40PSI;
+    doc["SensorValueAt0PSI"] = settings.SensorValueAt0PSI;
+    doc["SensorValueAt50PSI"] = settings.SensorValueAt50PSI;
     doc["MessureWait"] = settings.MessureWait;
     doc["BTPinCode"] = settings.BTPinCode;
 
@@ -739,12 +739,12 @@ float readPressureFromSensor()
     Serial.print(sensorVal);
     Serial.println(" ========================");
 
-    float range = settings.SensorValueAt40PSI - settings.SensorValueAt10PSI; // 2894-1345
-    float onePSI = range / 30;                                               // 49
+    float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI; // 2894-1345
+    float onePSI = range / 50;                                               // 49
     Serial.println("onePSI: " + String(onePSI));
-    float zeroPSI = settings.SensorValueAt10PSI - (onePSI * 10); // 400
+    float zeroPSI = settings.SensorValueAt0PSI; // 400
     float pressure_pascal = (sensorVal - zeroPSI) / onePSI;
-    // float zeroPSI =  settings.SensorValueAt10PSI - (onePSI*10); //400
+    // float zeroPSI =  settings.SensorValueAt0PSI - (onePSI*10); //400
     // float pressure_pascal =settings.SensorCorrectionFactor* (sensorVal - zeroPSI)/onePSI;
     float pressure_bar = pressure_pascal / 14.7;
 
@@ -918,8 +918,8 @@ void SyncWithBlueToothDevice()
                     settings.RelayFreePin = doc["RelayFreePin"].as<int>();
                     settings.SensorPin = doc["SensorPin"].as<int>();
                     settings.AutoStart = (bool)doc["AutoStart"];
-                    settings.SensorValueAt10PSI = doc["SensorValueAt10PSI"].as<int>();
-                    settings.SensorValueAt40PSI = doc["SensorValueAt40PSI"].as<int>();
+                    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
+                    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
                     settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
                     settings.BTPinCode = doc["BTPinCode"] | "1234";
 

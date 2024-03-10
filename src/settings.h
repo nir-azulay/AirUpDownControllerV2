@@ -10,8 +10,8 @@ struct DeviceSettings{
     int SensorPin = 27;
     int MaxSecForStatus = 5;
     bool AutoStart = false;
-    int SensorValueAt10PSI = 1345;
-    int SensorValueAt40PSI = 2894;    
+    int SensorValueAt0PSI = 428;
+    int SensorValueAt50PSI = 3182;    
     String BTPinCode = "1234";    
     double MessureWait = 2;  
 };

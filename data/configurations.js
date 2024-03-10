@@ -15,7 +15,7 @@
       document.getElementById("chk_AutoStart").checked = (aValues[6]=="1");
       document.getElementById("txt_MaxSecForStatus").value = aValues[7];
       document.getElementById("txt_SensorValueAt10PSI").value = aValues[8];
-      document.getElementById("txt_SensorValueAt40PSI").value = aValues[9];
+      document.getElementById("txt_SensorValueAt50PSI").value = aValues[9];
       document.getElementById("txt_BTPinCode").value = aValues[10];        
       document.getElementById("txt_MessureWait").value = aValues[11];        
       document.getElementById("lbl_version").innerHTML = aValues[12];
@@ -33,7 +33,7 @@
       AutoStart: document.getElementById("chk_AutoStart").checked,
       MaxSecForStatus: document.getElementById("txt_MaxSecForStatus").value,
       SensorValueAt10PSI: document.getElementById("txt_SensorValueAt10PSI").value,
-      SensorValueAt40PSI: document.getElementById("txt_SensorValueAt40PSI").value,
+      SensorValueAt50PSI: document.getElementById("txt_SensorValueAt50PSI").value,
       BTPinCode: document.getElementById("txt_BTPinCode").value,
       MessureWait: document.getElementById("txt_MessureWait").value});
                                       
