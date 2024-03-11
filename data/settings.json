@@ -7,7 +7,7 @@
     "SensorPin": 32,
     "AutoStart": true,
     "MaxSecForStatus": 5,
-    "SensorValueAt0PSI": 430,
+    "SensorValueAt0PSI": 412,
     "SensorValueAt50PSI": 3182,
     "BTPinCode": "1234",
     "MessureWait": 1

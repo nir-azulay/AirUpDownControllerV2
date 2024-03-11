@@ -604,6 +604,8 @@ void loadSettingsfile()
     settings.BTPinCode = doc["BTPinCode"] | "1234";
     settings.MessureWait = doc["MessureWait"].as<int>() | 2;
 
+    
+
     // Close the file (Curiously, File's destructor doesn't close the file)
     file.close();
 }
