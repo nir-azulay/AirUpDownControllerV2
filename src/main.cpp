@@ -18,6 +18,7 @@
 int backupProgress = 0;
 bool wifiInitialized = false;
 int tikingCounter = 0;
+bool upgradeInProgress=false;
 
 #pragma region webServer declaration
 
@@ -44,15 +45,15 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
 
 // Consts Declartions
 #define USE_PIN           // Uncomment this to use PIN during pairing. The pin is specified on the line below
-const char *pin = "1234"; // Change this to more secure PIN.
-const int RELAY_COMPRESSOR_PIN = 16;
-const int RELAY_FREE_PIN = 17;
-const int SENSOR_PIN = 32;
+//const char *pin = "1234"; // Change this to more secure PIN.
+//const int RELAY_COMPRESSOR_PIN = 16;
+//const int RELAY_FREE_PIN = 17;
+//const int SENSOR_PIN = 32;
 
-const int AIR_PRESSURE_SENSOR_MAX_MPA = 0.5;
-double pressureCurrectionFactor = 1;
-double voltCurrection = 0.47;
-int maxSecForStatus = 10;
+//const int AIR_PRESSURE_SENSOR_MAX_MPA = 0.5;
+//double pressureCurrectionFactor = 1;
+//double voltCurrection = 0.47;
+//int maxSecForStatus = 10;
 //String device_name = "ESP32-BT-AirDownUp-Controller";
 
 // Global variables
@@ -100,6 +101,7 @@ String processor_update(const String &var)
 void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final)
 {
     Serial.println("Update");
+    upgradeInProgress=true;
 
     if (!index)
     {
@@ -135,6 +137,7 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
             ESP.restart();
         }
     }
+    upgradeInProgress=false;
 }
 
 void handleDoUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
@@ -278,7 +281,6 @@ String getSettingsParams(const String &var)
 {
 
     Serial.println(var);
-
     String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + Software_VER};
     Serial.println("getsetSetting: " + status);
     return status;
@@ -290,6 +292,30 @@ String getSettingsXML()
     String XML = "<settings>";
     XML += "<DeviceName>" + settings.DeviceName + "</DeviceName>";
     XML += "<wifissid>" + settings.wifissid + "</wifissid>";
+    XML += "<wifipassword>" + settings.wifipassword + "</wifipassword>";
+    XML += "<RelayCompressorPin>" + String(settings.RelayCompressorPin) + "</RelayCompressorPin>";
+    XML += "<RelayFreePin>" + String(settings.RelayFreePin) + "</RelayFreePin>";
+    XML += "<SensorPin>" + String(settings.SensorPin) + "</SensorPin>";
+    XML += "<AutoStart>" + String(settings.AutoStart) + "</AutoStart>";
+    XML += "<MaxSecForStatus>" + String(settings.MaxSecForStatus) + "</MaxSecForStatus>";
+    XML += "<SensorValueAt0PSI>" + String(settings.SensorValueAt0PSI) + "</SensorValueAt0PSI>";
+    XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI) + "</SensorValueAt50PSI>";
+    XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
+    XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
+    XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
+    XML += "<Software_VER>" + String(Software_VER) + "</Software_VER>";
+    XML += "</settings>";
+
+    Serial.println("getSettingsXML: " + XML);
+    return XML;
+}
+
+String getSettingsTextDelimiter()
+{
+
+    String XML = "";
+    XML += "DeviceName:" + settings.DeviceName + ";";
+    XML += "wifissid:" + settings.wifissid + "</wifissid>";
     XML += "<wifipassword>" + settings.wifipassword + "</wifipassword>";
     XML += "<RelayCompressorPin>" + String(settings.RelayCompressorPin) + "</RelayCompressorPin>";
     XML += "<RelayFreePin>" + String(settings.RelayFreePin) + "</RelayFreePin>";
@@ -509,47 +535,6 @@ void setupWiFi()
         Serial.println("Setup Access point named: " + settings.DeviceName);
         Serial.println("password for access point: " + String(softAPpassword));
         Serial.println("browse to the following IP: " + IP.toString());
-        /*
-            tft.fillScreen(ILI9341_BLACK);
-            tft.setCursor(5, 10);
-
-            tft.setTextColor(ILI9341_GREEN);
-            tft.setFont(&FreeMonoBold12pt7b);
-            tft.setTextSize(1);
-            tft.println("Setup WiFi");
-            tft.setFont(&FreeMono9pt7b);
-            tft.println("");
-
-            tft.setTextColor(ILI9341_WHITE);
-            tft.setFont(&FreeMono9pt7b);
-            tft.setTextSize(1);
-            tft.println("No Wifi COnnection, please connect to the following Access Point:");
-
-            tft.setTextColor(ILI9341_GREENYELLOW);
-            tft.setTextSize(1);
-            tft.setFont(&FreeMonoBold12pt7b);
-            tft.println("   " + settings.DeviceName);
-
-            tft.setTextColor(ILI9341_WHITE);
-            tft.setFont(&FreeMono9pt7b);
-            tft.setTextSize(1);
-            tft.println("the WiFi Password is: ");
-
-            tft.setTextColor(ILI9341_GREENYELLOW);
-            tft.setTextSize(1);
-            tft.setFont(&FreeMonoBold12pt7b);
-            tft.println("      " + String(softAPpassword));
-
-            tft.setTextColor(ILI9341_WHITE);
-            tft.setFont(&FreeMono9pt7b);
-            tft.setTextSize(1);
-            tft.println("after connecting to WiFi, browse to the following URL:");
-
-            tft.setTextColor(ILI9341_GREENYELLOW);
-            tft.setFont(&FreeMonoBold12pt7b);
-            tft.setTextSize(1);
-            tft.println("     " + IP.toString());
-         */
     }
 }
 
@@ -664,13 +649,14 @@ void printSettingsFile()
     }
     file.close();
 }
+
 void setupBlueTooth()
 {
     // BT sets
     Serial.printf("The device with name \"%s\" is started.\nNow you can pair it with Bluetooth!\n", settings.DeviceName.c_str());
     if (settings.BTPinCode.length()>0)
     {
-        //SerialBT.setPin(settings.BTPinCode.c_str());
+        SerialBT.setPin(settings.BTPinCode.c_str());
         Serial.println("Using PIN");
     }
     SerialBT.begin(settings.DeviceName); // Bluetooth device name
@@ -688,8 +674,7 @@ void setup()
     setupWiFi();
     setupWebServer();
     client.setInsecure(); // skip verification
-    Serial.print("setup() running on core ");
-    Serial.println(xPortGetCoreID());
+    Serial.print("setup() running on core ");Serial.println(xPortGetCoreID());
     setupBlueTooth();
     
     // initiate relays Legs
@@ -706,6 +691,7 @@ void setup()
 
 void loop()
 {
+    if (upgradeInProgress) return;
     //Serial.print("loop: ");
     // skip x tiks to avoid reading presure every loop
     if (tikingCounter == 0)
@@ -745,6 +731,7 @@ float readPressureFromSensor()
     Serial.println("onePSI: " + String(onePSI));
     float zeroPSI = settings.SensorValueAt0PSI; // 400
     float pressure_pascal = (sensorVal - zeroPSI) / onePSI;
+    if (pressure_pascal<1) pressure_pascal = 0;
     // float zeroPSI =  settings.SensorValueAt0PSI - (onePSI*10); //400
     // float pressure_pascal =settings.SensorCorrectionFactor* (sensorVal - zeroPSI)/onePSI;
     float pressure_bar = pressure_pascal / 14.7;
@@ -842,7 +829,7 @@ void SendStatusToMobile()
         if (operationMode == Stop)
             toSend = toSend * -1;
 
-        //SerialBT.print(toSend, 1);
+        SerialBT.print(toSend, 1);
 
         Serial.print("SendStatusToMobile: ");
         Serial.print(toSend);
@@ -907,6 +894,7 @@ void SyncWithBlueToothDevice()
                 }
                 case '{': // setting starting with wifissid:
                 {
+                    
                     DynamicJsonDocument doc(1024);
                     deserializeJson(doc, sMessage);
 
@@ -939,8 +927,8 @@ void SyncWithBlueToothDevice()
             Serial.println(" SyncWithBlueToothDevice finished");
         }
         // send current Pressure to application
-        //SendStatusToMobile();
-        SendSettingsToMobile();
+        SendStatusToMobile();
+        //SendSettingsToMobile();
     }
 }
 
