@@ -1,7 +1,7 @@
 {
     "DeviceName": "ESP32-BT-AirDownUp-Controller",
     "wifissid": "",
-    "wifipassword": "",    
+    "wifipassword": "12345678",    
     "RelayCompressorPin": 16,
     "RelayFreePin": 17,
     "SensorPin": 32,

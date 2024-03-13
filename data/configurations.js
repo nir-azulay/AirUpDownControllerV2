@@ -14,7 +14,7 @@
       document.getElementById("txt_SensorPin").value = aValues[5];
       document.getElementById("chk_AutoStart").checked = (aValues[6]=="1");
       document.getElementById("txt_MaxSecForStatus").value = aValues[7];
-      document.getElementById("txt_SensorValueAt10PSI").value = aValues[8];
+      document.getElementById("txt_SensorValueAt0PSI").value = aValues[8];
       document.getElementById("txt_SensorValueAt50PSI").value = aValues[9];
       document.getElementById("txt_BTPinCode").value = aValues[10];        
       document.getElementById("txt_MessureWait").value = aValues[11];        

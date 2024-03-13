@@ -19,6 +19,8 @@ int backupProgress = 0;
 bool wifiInitialized = false;
 int tikingCounter = 0;
 bool upgradeInProgress=false;
+String currentIP= "";
+
 
 #pragma region webServer declaration
 
@@ -310,6 +312,31 @@ String getSettingsXML()
     return XML;
 }
 
+String getSettingsJSON()
+{
+
+    String JSON = "{";
+    JSON += "'DeviceName': '" + settings.DeviceName + "',";
+    JSON += "'wifissid': '" + settings.wifissid + "',";
+    JSON += "'wifipassword': '" + settings.wifipassword + "',";
+    JSON += "'RelayCompressorPin': '" + String(settings.RelayCompressorPin) + "',";
+    JSON += "'RelayFreePin': '" + String(settings.RelayFreePin) + "',";
+    JSON += "'SensorPin': '" + String(settings.SensorPin) + "',";
+    JSON += "'AutoStart': '" + String(settings.AutoStart) + "',";
+    JSON += "'MaxSecForStatus': '" + String(settings.MaxSecForStatus) + "',";
+    JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI) + "',";
+    JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI) + "',";
+    JSON += "'MessureWait': '" + String(settings.MessureWait) + "',";
+    JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
+    JSON += "'CurrentPressure': '" + String(currentPressure) + "',";
+    JSON += "'Software_VER': '" + String(Software_VER) + "',";
+    JSON += "'IP': '" + currentIP + "'";    
+    JSON += "}";
+
+    Serial.println("getSettingsJSON: " + JSON);
+    return JSON;
+}
+
 String getSettingsTextDelimiter()
 {
 
@@ -375,8 +402,6 @@ void saveSettings(AsyncWebServerRequest *request)
             settings.MessureWait = p->value().toDouble();
     }
 
-    Serial.print("settings.DeviceName=");
-    Serial.println(settings.DeviceName);
 
     saveSettingFile();
     AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "Ok");
@@ -516,7 +541,9 @@ void setupWiFi()
         Serial.println("");
         Serial.println("WiFi connected.");
         Serial.println("IP address: ");
-        Serial.println(WiFi.localIP());
+        IPAddress IP = WiFi.localIP();
+        Serial.println(IP.toString());
+        currentIP = IP.toString();
         /*
             tft.setCursor(1, 140);
             tft.println("IP Adresss:");
@@ -535,6 +562,7 @@ void setupWiFi()
         Serial.println("Setup Access point named: " + settings.DeviceName);
         Serial.println("password for access point: " + String(softAPpassword));
         Serial.println("browse to the following IP: " + IP.toString());
+        currentIP = IP.toString();
     }
 }
 
@@ -583,11 +611,11 @@ void loadSettingsfile()
     settings.RelayFreePin = doc["RelayFreePin"].as<int>();
     settings.SensorPin = doc["SensorPin"].as<int>();
     settings.AutoStart = (bool)doc["AutoStart"];
+    settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
     settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
     settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
-    settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
-    settings.BTPinCode = doc["BTPinCode"] | "1234";
-    settings.MessureWait = doc["MessureWait"].as<int>() | 2;
+    settings.BTPinCode = doc["BTPinCode"].as<String>();
+    settings.MessureWait = doc["MessureWait"].as<int>();
 
     
     // Close the file (Curiously, File's destructor doesn't close the file)
@@ -625,6 +653,7 @@ void saveSettingFile()
     }
     serializeJson(doc, settingsFile);
     settingsFile.close();
+    Serial.println("finish to save settings file");
 }
 
 void printSettingsFile()
@@ -660,7 +689,15 @@ void setupBlueTooth()
         Serial.println("Using PIN");
     }
     SerialBT.begin(settings.DeviceName); // Bluetooth device name
+    SerialBT.register_callback(callback);
+    //SendSettingsToMobile();
+}
+
+void callback(esp_spp_cb_event_t event, esp_spp_cb_param_t *param){
+  if(event == ESP_SPP_SRV_OPEN_EVT){
+    Serial.println("Client Connected");
     SendSettingsToMobile();
+  }
 }
 //========================
 #pragma endregion settings
@@ -842,7 +879,7 @@ void SendSettingsToMobile()
 
     Serial.print(" SendSettingsToMobile started ");
     {
-        String  toSend =  getSettingsXML();
+        String  toSend =  getSettingsJSON();
 
 
         // if need  to send also stop mode will add - to the value (signal)
@@ -907,14 +944,16 @@ void SyncWithBlueToothDevice()
                     settings.RelayFreePin = doc["RelayFreePin"].as<int>();
                     settings.SensorPin = doc["SensorPin"].as<int>();
                     settings.AutoStart = (bool)doc["AutoStart"];
+                    settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
                     settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
                     settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
                     settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
                     settings.BTPinCode = doc["BTPinCode"] | "1234";
 
-                    Serial.println("settings.BTPinCode : " + settings.BTPinCode);
+                    Serial.println("settings.MaxSecForStatus : " + settings.MaxSecForStatus);
 
                     saveSettingFile();
+                    ESP.restart();
                     break;
                 }
                 default:
@@ -951,8 +990,8 @@ double calculateDelatFactor()
     if (factor > settings.MaxSecForStatus)
         factor = settings.MaxSecForStatus;
 
-    // Serial.print(" calculateDelatFactor: ");
-    // Serial.println(factor);
+    Serial.print(" calculateDelatFactor: ");
+    Serial.println(factor);
 
     return factor;
 }
