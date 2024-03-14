@@ -844,9 +844,9 @@ void OperateAir()
     Serial.print(" Current Pressure: ");
     Serial.print(currentPressure);
 
-    if (targetPressure > currentPressure)
+    if ((targetPressure - currentPressure)>1)
         InflateAir();
-    else if (targetPressure < currentPressure)
+    else if ((targetPressure - currentPressure)<-1)
         DeflateAir();
     else
         StopAir();
