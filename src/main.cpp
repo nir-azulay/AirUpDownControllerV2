@@ -283,7 +283,7 @@ String getSettingsParams(const String &var)
 {
 
     Serial.println(var);
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + Software_VER};
+    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" +  Software_VER};
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -303,6 +303,7 @@ String getSettingsXML()
     XML += "<SensorValueAt0PSI>" + String(settings.SensorValueAt0PSI) + "</SensorValueAt0PSI>";
     XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI) + "</SensorValueAt50PSI>";
     XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
+    XML += "<Precision>" + String(settings.Precision) + "</Precision>";    
     XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
     XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
     XML += "<Software_VER>" + String(Software_VER) + "</Software_VER>";
@@ -327,6 +328,7 @@ String getSettingsJSON()
     JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI) + "',";
     JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI) + "',";
     JSON += "'MessureWait': '" + String(settings.MessureWait) + "',";
+    JSON += "'Precision': '" + String(settings.Precision) + "',";    
     JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
     JSON += "'CurrentPressure': '" + String(currentPressure) + "',";
     JSON += "'Software_VER': '" + String(Software_VER) + "',";
@@ -352,6 +354,7 @@ String getSettingsTextDelimiter()
     XML += "<SensorValueAt0PSI>" + String(settings.SensorValueAt0PSI) + "</SensorValueAt0PSI>";
     XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI) + "</SensorValueAt50PSI>";
     XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
+    XML += "<Precision>" + String(settings.Precision) + "</Precision>";    
     XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
     XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
     XML += "<Software_VER>" + String(Software_VER) + "</Software_VER>";
@@ -400,6 +403,8 @@ void saveSettings(AsyncWebServerRequest *request)
             settings.BTPinCode = p->value().toInt();
         else if (paramName == "MessureWait")
             settings.MessureWait = p->value().toDouble();
+        else if (paramName == "Precision")
+            settings.Precision = p->value().toDouble();
     }
 
 
@@ -523,7 +528,7 @@ void setupWebServer()
 // setup Wifi connection
 void setupWiFi()
 {
-    int maxRetry = 8;
+    int maxRetry = 2;
     int retryCounter = 0;
 
     WiFi.begin(settings.wifissid.c_str(), settings.wifipassword.c_str());
@@ -615,7 +620,9 @@ void loadSettingsfile()
     settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
     settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
     settings.BTPinCode = doc["BTPinCode"].as<String>();
-    settings.MessureWait = doc["MessureWait"].as<int>();
+    settings.MessureWait = doc["MessureWait"].as<double>();
+    settings.Precision = doc["Precision"].as<double>();
+    
 
     
     // Close the file (Curiously, File's destructor doesn't close the file)
@@ -638,6 +645,7 @@ void saveSettingFile()
     doc["SensorValueAt0PSI"] = settings.SensorValueAt0PSI;
     doc["SensorValueAt50PSI"] = settings.SensorValueAt50PSI;
     doc["MessureWait"] = settings.MessureWait;
+    doc["Precision"] = settings.Precision;    
     doc["BTPinCode"] = settings.BTPinCode;
 
     if (SPIFFS.exists("/settings.json.bak"))
@@ -743,7 +751,7 @@ void loop()
     else
         StopAir();
 
-    delay(1000);
+    delay(1000*settings.MessureWait);
 
     if (tikingCounter > calculateDelatFactor())
         tikingCounter = 0;
@@ -844,9 +852,9 @@ void OperateAir()
     Serial.print(" Current Pressure: ");
     Serial.print(currentPressure);
 
-    if ((targetPressure - currentPressure)>1)
+    if ((targetPressure - currentPressure)>settings.Precision)
         InflateAir();
-    else if ((targetPressure - currentPressure)<-1)
+    else if ((targetPressure - currentPressure)<settings.Precision)
         DeflateAir();
     else
         StopAir();
@@ -947,7 +955,8 @@ void SyncWithBlueToothDevice()
                     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
                     settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
                     settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
-                    settings.MessureWait = (double)(doc["MessureWait"].isNull() ? 2 : doc["MessureWait"]);
+                    settings.MessureWait = doc["MessureWait"].as<double>();
+                    settings.Precision = doc["Precision"].as<double>();                    
                     settings.BTPinCode = doc["BTPinCode"] | "1234";
 
                     Serial.println("settings.MaxSecForStatus : " + settings.MaxSecForStatus);

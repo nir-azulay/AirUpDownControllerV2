@@ -123,16 +123,24 @@
       <tr>
         <td>
           <label>Messure Wait in Sec</label>
-        </td>
-          
+        </td>          
         <td>
           <input class="input" id="txt_MessureWait" type="text" />
         </td>
-      </tr>           
+      </tr>   
+      <tr>
+        <td>
+          <label>Precision</label>
+        </td>          
+        <td>
+          <input class="input" id="txt_Precision" type="text" />
+        </td>
+      </tr>         
+              
     </table>
     <tr>
       <td colspan="2">
-          <input type="button" class="btn" onclick="{saveSettings(form)};" value = "Save Settings" id="btnSave"/>          
+          <input type="button" class="btn" onclick="{saveSettings()};" value = "Save Settings" id="btnSave"/>          
           <input type="button" class="btn" onclick="location.href='/';" value="Main page"/>
       </td>
     </tr>

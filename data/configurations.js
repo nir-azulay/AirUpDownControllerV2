@@ -17,8 +17,9 @@
       document.getElementById("txt_SensorValueAt0PSI").value = aValues[8];
       document.getElementById("txt_SensorValueAt50PSI").value = aValues[9];
       document.getElementById("txt_BTPinCode").value = aValues[10];        
-      document.getElementById("txt_MessureWait").value = aValues[11];        
-      document.getElementById("lbl_version").innerHTML = aValues[12];
+      document.getElementById("txt_MessureWait").value = aValues[11];  
+      document.getElementById("txt_Precision").value = aValues[12];              
+      document.getElementById("lbl_version").innerHTML = aValues[13];
     }
 
     function saveSettings()
@@ -32,13 +33,13 @@
       SensorPin: document.getElementById("txt_SensorPin").value,
       AutoStart: document.getElementById("chk_AutoStart").checked,
       MaxSecForStatus: document.getElementById("txt_MaxSecForStatus").value,
-      SensorValueAt10PSI: document.getElementById("txt_SensorValueAt10PSI").value,
+      SensorValueAt0PSI: document.getElementById("txt_SensorValueAt0PSI").value,
       SensorValueAt50PSI: document.getElementById("txt_SensorValueAt50PSI").value,
       BTPinCode: document.getElementById("txt_BTPinCode").value,
-      MessureWait: document.getElementById("txt_MessureWait").value});
+      MessureWait: document.getElementById("txt_MessureWait").value,
+      Precision: document.getElementById("txt_Precision").value});
                                       
       var urlwithQS = "/updateSettings?" + params.toString();
-      
       var xhr = new XMLHttpRequest();
       xhr.open("GET", urlwithQS, false);       
       xhr.send();

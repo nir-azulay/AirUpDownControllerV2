@@ -10,5 +10,6 @@
     "SensorValueAt0PSI": 412,
     "SensorValueAt50PSI": 2960,
     "BTPinCode": "1234",
-    "MessureWait": 1
+    "MessureWait": 1,
+    "Precision": 0.5
 }

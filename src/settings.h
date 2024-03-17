@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#define Software_VER 1.00        // Current version of BG Buddy, displayed at startup
+#define Software_VER 1.02        // Current version of BG Buddy, displayed at startup
 
 struct DeviceSettings{
     String DeviceName = "esp32-AirUpDownController";
@@ -14,6 +14,7 @@ struct DeviceSettings{
     int SensorValueAt50PSI = 3182;    
     String BTPinCode = "1234";    
     double MessureWait = 2;  
+    double Precision = 0.5;
 };
 
 enum OperationMode {
