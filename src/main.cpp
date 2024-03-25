@@ -1,14 +1,16 @@
 #include <Arduino.h>
-#include "BluetoothSerial.h"
-// #include <SPI.h>
-// #include <Wire.h>
+
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #include <WebServer.h>
-// #include <ESPmDNS.h>
 #include <Update.h>
 #include "main.h"
 #include "SPIFFS.h"
@@ -35,8 +37,6 @@ size_t content_len;
 File file;
 bool opened = false;
 
-// AsyncWebServer webServer(80);
-// size_t content_len;
 WiFiClientSecure client;
 #pragma endregion webServer declaration
 
@@ -46,17 +46,6 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
 #pragma endregion WiFi declaration
 
 // Consts Declartions
-#define USE_PIN           // Uncomment this to use PIN during pairing. The pin is specified on the line below
-//const char *pin = "1234"; // Change this to more secure PIN.
-//const int RELAY_COMPRESSOR_PIN = 16;
-//const int RELAY_FREE_PIN = 17;
-//const int SENSOR_PIN = 32;
-
-//const int AIR_PRESSURE_SENSOR_MAX_MPA = 0.5;
-//double pressureCurrectionFactor = 1;
-//double voltCurrection = 0.47;
-//int maxSecForStatus = 10;
-//String device_name = "ESP32-BT-AirDownUp-Controller";
 
 // Global variables
 double currentPressure = 0;
@@ -65,27 +54,45 @@ OperationMode operationMode = Stop;
 
 DeviceSettings settings; // <- global settingsuration object
 
-// Debug
-bool simulationMode = true;
-int iSimulationCounter = 0;
 
-#if defined(CONFIG_CLASSIC_BT_ENABLED)
-#define BT_MODE ESP_BT_MODE_CLASSIC_BT
-#elif defined(CONFIG_BT_BLE_ENABLED)
-#define BT_MODE ESP_BT_MODE_BLE
-#else
-#define BT_MODE ESP_BT_MODE_BTDM
-#endif
+BLEServer* pServer = NULL;
+BLECharacteristic* pCharacteristic = NULL;
+BLECharacteristic* pCharacteristic_2 = NULL;
+BLEDescriptor *pDescr;
+BLE2902 *pBLE2902;
 
-// #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
-// #error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
-// #endif
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
+bool firstTimeConnceted = true;
+String BLEBufferValue = "";
 
-// #if !defined(CONFIG_BT_SPP_ENABLED)
-// #error Serial Bluetooth not available or not enabled. It is only available for the ESP32 chip.
-// #endif
 
-BluetoothSerial SerialBT;
+// See the following for generating UUIDs:
+// https://www.uuidgenerator.net/
+
+#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define CHAR1_UUID          "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define CHAR2_UUID          "e3223119-9445-4e96-a4a1-85358c4046a2"
+
+
+class MyBLEServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+    }
+};
+
+class CharacteristicCallBack: public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *pChar) override { 
+    std::string pChar2_value_stdstr = pChar->getValue();
+    String pChar2_value_string = String(pChar2_value_stdstr.c_str());
+    Serial.println("pChar2: " + pChar2_value_string); 
+    SyncWithBlueToothDevice(pChar2_value_string);
+  }
+};
 
 #pragma region WebServer
 //======================
@@ -186,24 +193,10 @@ void printProgress(size_t prg, size_t sz)
 {
     int progress = ((prg * 100) / content_len);
 
-    Serial.printf("Progress: %d%%\n", progress);
-
-    if (progress % 20 == 0 && progress != backupProgress)
+    if (progress % 10 == 0 && progress != backupProgress)
     {
         backupProgress = progress;
-        /*
-            tft.fillScreen(ILI9341_BLACK);
-            tft.setCursor(5, 50);
-            tft.setTextSize(1);
-            tft.setTextColor(ILI9341_GREEN);
-            tft.setFont(&FreeMonoBoldOblique12pt7b);
-            tft.println("Firmware Update");
-            tft.setTextSize(1);
-            tft.setTextColor(ILI9341_YELLOW);
-            tft.println("");
-            tft.printf("Progress: %d%%\n", progress);
-            //tft.drawBitmap(0, 0, canvas.getBuffer(), canvas.width(), canvas.height(), ILI9341_YELLOW, ILI9341_BLACK);
-        */
+        Serial.printf("Progress: %d%%\n", progress);
     }
 }
 
@@ -313,9 +306,19 @@ String getSettingsXML()
     return XML;
 }
 
+String getPressureJSON()
+{
+    String JSON = "{";
+    JSON += "'Pressure': '" + String(currentPressure,1) + "',";
+    JSON += "'operationMode': '" + String(operationMode) + "'";
+    JSON += "}";
+
+    Serial.println("getPressureJSON: " + JSON);
+    return JSON;
+}
+
 String getSettingsJSON()
 {
-
     String JSON = "{";
     JSON += "'DeviceName': '" + settings.DeviceName + "',";
     JSON += "'wifissid': '" + settings.wifissid + "',";
@@ -338,32 +341,6 @@ String getSettingsJSON()
     Serial.println("getSettingsJSON: " + JSON);
     return JSON;
 }
-
-String getSettingsTextDelimiter()
-{
-
-    String XML = "";
-    XML += "DeviceName:" + settings.DeviceName + ";";
-    XML += "wifissid:" + settings.wifissid + "</wifissid>";
-    XML += "<wifipassword>" + settings.wifipassword + "</wifipassword>";
-    XML += "<RelayCompressorPin>" + String(settings.RelayCompressorPin) + "</RelayCompressorPin>";
-    XML += "<RelayFreePin>" + String(settings.RelayFreePin) + "</RelayFreePin>";
-    XML += "<SensorPin>" + String(settings.SensorPin) + "</SensorPin>";
-    XML += "<AutoStart>" + String(settings.AutoStart) + "</AutoStart>";
-    XML += "<MaxSecForStatus>" + String(settings.MaxSecForStatus) + "</MaxSecForStatus>";
-    XML += "<SensorValueAt0PSI>" + String(settings.SensorValueAt0PSI) + "</SensorValueAt0PSI>";
-    XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI) + "</SensorValueAt50PSI>";
-    XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
-    XML += "<Precision>" + String(settings.Precision) + "</Precision>";    
-    XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
-    XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
-    XML += "<Software_VER>" + String(Software_VER) + "</Software_VER>";
-    XML += "</settings>";
-
-    Serial.println("getSettingsXML: " + XML);
-    return XML;
-}
-
 
 void saveSettings(AsyncWebServerRequest *request)
 {
@@ -689,25 +666,57 @@ void printSettingsFile()
 
 void setupBlueTooth()
 {
-    // BT sets
-    Serial.printf("The device with name \"%s\" is started.\nNow you can pair it with Bluetooth!\n", settings.DeviceName.c_str());
-    if (settings.BTPinCode.length()>0)
-    {
-        SerialBT.setPin(settings.BTPinCode.c_str());
-        Serial.println("Using PIN");
-    }
-    SerialBT.begin(settings.DeviceName); // Bluetooth device name
-    SerialBT.register_callback(callback);
-    //SendSettingsToMobile();
+     // Create the BLE Device
+  BLEDevice::init(settings.DeviceName.c_str());
+
+  // Create the BLE Server
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyBLEServerCallbacks());
+
+  // Create the BLE Service
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+
+  // Create a BLE Characteristic
+  pCharacteristic = pService->createCharacteristic(
+                      CHAR1_UUID,
+                      BLECharacteristic::PROPERTY_NOTIFY
+                    );                   
+
+  pCharacteristic_2 = pService->createCharacteristic(
+                      CHAR2_UUID,
+                      BLECharacteristic::PROPERTY_READ   |
+                      BLECharacteristic::PROPERTY_WRITE  
+                    );  
+
+  // Create a BLE Descriptor
+  
+  pDescr = new BLEDescriptor((uint16_t)0x2901);
+  pDescr->setValue("A very interesting variable");
+  pCharacteristic->addDescriptor(pDescr);
+  
+  pBLE2902 = new BLE2902();
+  pBLE2902->setNotifications(true);
+  
+  // Add all Descriptors here
+  pCharacteristic->addDescriptor(pBLE2902);
+  pCharacteristic_2->addDescriptor(new BLE2902());
+  
+  // After defining the desriptors, set the callback functions
+  pCharacteristic_2->setCallbacks(new CharacteristicCallBack());
+  
+  // Start the service
+  pService->start();
+
+  // Start advertising
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->setScanResponse(false);
+  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
+  BLEDevice::startAdvertising();
+  Serial.println("Waiting a client connection to notify...");
+
 }
 
-void callback(esp_spp_cb_event_t event, esp_spp_cb_param_t *param){
-  if(event == ESP_SPP_SRV_OPEN_EVT){
-    Serial.println("Client Connected");
-    SendSettingsToMobile();
-  }
-}
-//========================
 #pragma endregion settings
 
 void setup()
@@ -719,7 +728,7 @@ void setup()
     setupWiFi();
     setupWebServer();
     client.setInsecure(); // skip verification
-    Serial.print("setup() running on core ");Serial.println(xPortGetCoreID());
+    Serial.print("setup() running on core ");Serial.println(xPortGetCoreID());    
     setupBlueTooth();
     
     // initiate relays Legs
@@ -734,6 +743,37 @@ void setup()
     Serial.println("finish setup");
 }
 
+void BLESync()
+{
+    if (deviceConnected) {
+        if (firstTimeConnceted)
+        {
+            firstTimeConnceted=false;
+            SendSettingsToMobile();
+
+        }
+
+        if (BLEBufferValue.length()>0)
+        {
+        pCharacteristic->setValue(BLEBufferValue.c_str());
+        pCharacteristic->notify();
+        BLEBufferValue= "";
+        }
+    }
+    // disconnecting
+    if (!deviceConnected && oldDeviceConnected) {
+        delay(500); // give the bluetooth stack the chance to get things ready
+        pServer->startAdvertising(); // restart advertising
+        Serial.println("start advertising");
+        oldDeviceConnected = deviceConnected;
+    }
+    // connecting
+    if (deviceConnected && !oldDeviceConnected) {
+        // do stuff here on connecting
+        oldDeviceConnected = deviceConnected;
+    }
+}
+
 void loop()
 {
     if (upgradeInProgress) return;
@@ -744,7 +784,8 @@ void loop()
 
     tikingCounter++;
 
-    SyncWithBlueToothDevice();
+    
+    BLESync();
 
     if (operationMode != Stop)
         OperateAir();
@@ -756,8 +797,6 @@ void loop()
     if (tikingCounter > calculateDelatFactor())
         tikingCounter = 0;
 
-    //Serial.print(" tikingCounter =: ");
-    //Serial.println(tikingCounter);
 }
 
 float readPressureFromSensor()
@@ -865,21 +904,14 @@ void OperateAir()
 void SendStatusToMobile()
 {
 
-    if (currentPressure > 0)
 
         Serial.print(" SendStatusToMobile started ");
-    {
-        double toSend = currentPressure;
-        // if need  to send also stop mode will add - to the value (signal)
-        if (operationMode == Stop)
-            toSend = toSend * -1;
 
-        SerialBT.print(toSend, 1);
+        BLEBufferValue = getPressureJSON();
 
         Serial.print("SendStatusToMobile: ");
-        Serial.print(toSend);
+        Serial.print(BLEBufferValue);
         Serial.println(" SendStatusToMobile finished");
-    }
 }
 
 void SendSettingsToMobile()
@@ -887,29 +919,21 @@ void SendSettingsToMobile()
 
     Serial.print(" SendSettingsToMobile started ");
     {
-        String  toSend =  getSettingsJSON();
+        BLEBufferValue =  getSettingsJSON();
 
-
-        // if need  to send also stop mode will add - to the value (signal)
-        SerialBT.println(toSend);
-
+        BLESync();
         
-        Serial.print(toSend);
-        Serial.println(" SendSettingsToMobile dinished");
+        Serial.print(BLEBufferValue);
+        Serial.println(" SendSettingsToMobile finished");
     }
 }
 
 
-void SyncWithBlueToothDevice()
+void SyncWithBlueToothDevice(String Message)
 {
 
-    if (SerialBT.connected())
-    {
-        // read from application the target Pressure
-        if (SerialBT.available())
-        {
             Serial.print("SyncWithBlueToothDevice started ");
-            String sMessage = SerialBT.readString();
+            String sMessage = Message;
             String sTargetPressure;
             Serial.print("sMessage: ");
             Serial.print(sMessage);
@@ -944,7 +968,8 @@ void SyncWithBlueToothDevice()
                     deserializeJson(doc, sMessage);
 
                     Serial.println("lodaing json from app : " + sMessage);
-
+                    if (doc.containsKey("DeviceName"))
+                    {
                     settings.DeviceName = doc["DeviceName"].as<String>();
                     settings.wifissid = doc["wifissid"].as<String>();
                     settings.wifipassword = doc["wifipassword"].as<String>();
@@ -963,31 +988,20 @@ void SyncWithBlueToothDevice()
 
                     saveSettingFile();
                     ESP.restart();
-                    break;
-                }
-                default:
-                {
-                    // statements
-                    Serial.print("Empty Switch case: ");
-                    break;
-                }
+                    } 
+                    else
+                    {
+                        targetPressure = doc["targetPressure"].as<int>();
+                        
+
+                    }
             }
             Serial.println(" SyncWithBlueToothDevice finished");
-        }
-        // send current Pressure to application
-        SendStatusToMobile();
-        //SendSettingsToMobile();
-    }
 }
 
 double calculateDelatFactor()
 {
     // every PSI is 1 5 sec
-    // Serial.print("calculateDelatFactor started ");
-    // Serial.print("currentPressure: ");
-    // Serial.print(currentPressure);
-    // Serial.print(" targetPressure: ");
-    // Serial.print(targetPressure);
 
     double factor = abs(targetPressure - currentPressure) * 5;
     // Serial.print(" calculateDelatFactor: ");

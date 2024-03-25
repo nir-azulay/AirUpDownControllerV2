@@ -1,6 +1,6 @@
 void readCurrentPressure();
 
-void SyncWithBlueToothDevice();
+void SyncWithBlueToothDevice(String Message);
 
 void OperateAir();
 
@@ -23,7 +23,5 @@ void InflateAir();
 void DeflateAir();
 
 void SendSettingsToMobile();
-
-void callback(esp_spp_cb_event_t event, esp_spp_cb_param_t *param);
 
 String getSettingsJSON();
