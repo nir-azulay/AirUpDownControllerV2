@@ -65,6 +65,7 @@ bool deviceConnected = false;
 bool oldDeviceConnected = false;
 bool firstTimeConnceted = true;
 String BLEBufferValue = "";
+String incompleteBLEMessage = "";
 
 
 // See the following for generating UUIDs:
@@ -87,10 +88,19 @@ class MyBLEServerCallbacks: public BLEServerCallbacks {
 
 class CharacteristicCallBack: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pChar) override { 
-    std::string pChar2_value_stdstr = pChar->getValue();
-    String pChar2_value_string = String(pChar2_value_stdstr.c_str());
-    Serial.println("pChar2: " + pChar2_value_string); 
-    SyncWithBlueToothDevice(pChar2_value_string);
+    String pChar2_value_string= "";
+    std::string pChar2_value_stdstr =  pChar->getValue();
+    pChar2_value_string += String(pChar2_value_stdstr.c_str());
+    Serial.println("pChar2: " + pChar2_value_string) + " " + pChar2_value_string.charAt(pChar2_value_string.length()-1); 
+
+    incompleteBLEMessage+=pChar2_value_string;
+
+    if (pChar2_value_string.charAt(pChar2_value_string.length()-1)=='}')
+    {
+        handleBLEMessage(incompleteBLEMessage);
+        incompleteBLEMessage="";
+    }
+    
   }
 };
 
@@ -668,9 +678,11 @@ void setupBlueTooth()
 {
      // Create the BLE Device
   BLEDevice::init(settings.DeviceName.c_str());
+  BLEDevice::setMTU(517);
 
   // Create the BLE Server
   pServer = BLEDevice::createServer();
+  //pServer->updatePeerMTU(pServer->getConnId(),200);
   pServer->setCallbacks(new MyBLEServerCallbacks());
 
   // Create the BLE Service
@@ -688,6 +700,7 @@ void setupBlueTooth()
                       BLECharacteristic::PROPERTY_WRITE  
                     );  
 
+
   // Create a BLE Descriptor
   
   pDescr = new BLEDescriptor((uint16_t)0x2901);
@@ -696,6 +709,7 @@ void setupBlueTooth()
   
   pBLE2902 = new BLE2902();
   pBLE2902->setNotifications(true);
+  
   
   // Add all Descriptors here
   pCharacteristic->addDescriptor(pBLE2902);
@@ -711,8 +725,9 @@ void setupBlueTooth()
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(false);
-  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
+  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter  
   BLEDevice::startAdvertising();
+ 
   Serial.println("Waiting a client connection to notify...");
 
 }
@@ -749,7 +764,8 @@ void BLESync()
         if (firstTimeConnceted)
         {
             firstTimeConnceted=false;
-            SendSettingsToMobile();
+            pCharacteristic->setValue(getSettingsJSON().c_str());
+            pCharacteristic->notify();
 
         }
 
@@ -857,6 +873,7 @@ void readCurrentPressure()
 
     Serial.print(" current Pressure: ");
     Serial.println(currentPressure);
+    SendStatusToMobile();
 }
 
 void StopAir()
@@ -929,74 +946,45 @@ void SendSettingsToMobile()
 }
 
 
-void SyncWithBlueToothDevice(String Message)
+void handleBLEMessage(String Message)
 {
+    Serial.print("handleBLEMessage started ");
+    String sMessage = Message;
 
-            Serial.print("SyncWithBlueToothDevice started ");
-            String sMessage = Message;
-            String sTargetPressure;
-            Serial.print("sMessage: ");
-            Serial.print(sMessage);
-            Serial.print(" first Char: ");
-            Serial.print(sMessage.charAt(0));
-            switch (sMessage.charAt(0))
-            {
-                case 'T':
-                {
-                    sTargetPressure = sMessage.substring(1, sMessage.length());
-                    Serial.print(" Target Pressure string: ");
-                    Serial.print(sTargetPressure);
-                    // if got new target than change setting
-                    targetPressure = sTargetPressure.toDouble();
-                    Serial.print(" Target Pressure: ");
-                    Serial.print(targetPressure);
-                    if (targetPressure > 0)
-                    {
-                        OperateAir();
-                    }
-                    else
-                    {
-                        targetPressure = abs(targetPressure);
-                        StopAir();
-                    }
-                    break;
-                }
-                case '{': // setting starting with wifissid:
-                {
-                    
-                    DynamicJsonDocument doc(1024);
-                    deserializeJson(doc, sMessage);
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, sMessage);
 
-                    Serial.println("lodaing json from app : " + sMessage);
-                    if (doc.containsKey("DeviceName"))
-                    {
-                    settings.DeviceName = doc["DeviceName"].as<String>();
-                    settings.wifissid = doc["wifissid"].as<String>();
-                    settings.wifipassword = doc["wifipassword"].as<String>();
-                    settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
-                    settings.RelayFreePin = doc["RelayFreePin"].as<int>();
-                    settings.SensorPin = doc["SensorPin"].as<int>();
-                    settings.AutoStart = (bool)doc["AutoStart"];
-                    settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-                    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
-                    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
-                    settings.MessureWait = doc["MessureWait"].as<double>();
-                    settings.Precision = doc["Precision"].as<double>();                    
-                    settings.BTPinCode = doc["BTPinCode"] | "1234";
-
-                    Serial.println("settings.MaxSecForStatus : " + settings.MaxSecForStatus);
-
-                    saveSettingFile();
-                    ESP.restart();
-                    } 
-                    else
-                    {
-                        targetPressure = doc["targetPressure"].as<int>();
-                        
-
-                    }
-            }
-            Serial.println(" SyncWithBlueToothDevice finished");
+    Serial.println("lodaing json from app : " + sMessage);
+    int  cmd = doc["command"].as<int>();
+    switch (cmd)
+    {
+        case 1: //Commands.stop:
+            StopAir();            
+            break;
+        case 2: //Commands.start:
+            targetPressure = doc["targetPressure"].as<int>();
+            Serial.println("targetPressure : " + String(targetPressure));
+            OperateAir();
+            break; 
+        case 3: //Commands.setting:      
+            settings.DeviceName = doc["DeviceName"].as<String>();
+            settings.wifissid = doc["wifissid"].as<String>();
+            settings.wifipassword = doc["wifipassword"].as<String>();
+            settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
+            settings.RelayFreePin = doc["RelayFreePin"].as<int>();
+            settings.SensorPin = doc["SensorPin"].as<int>();
+            settings.AutoStart = (bool)doc["AutoStart"];
+            settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
+            settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
+            settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
+            settings.MessureWait = doc["MessureWait"].as<double>();
+            settings.Precision = doc["Precision"].as<double>();                    
+            settings.BTPinCode = doc["BTPinCode"] | "1234";
+            saveSettingFile();
+            ESP.restart();                                                
+            break;
+    }
+    Serial.println(" handleBLEMessage finished");
 }
 
 double calculateDelatFactor()

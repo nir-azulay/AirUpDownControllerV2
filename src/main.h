@@ -1,6 +1,6 @@
 void readCurrentPressure();
 
-void SyncWithBlueToothDevice(String Message);
+void handleBLEMessage(String Message);
 
 void OperateAir();
 
@@ -23,5 +23,7 @@ void InflateAir();
 void DeflateAir();
 
 void SendSettingsToMobile();
+
+void SendStatusToMobile();
 
 String getSettingsJSON();

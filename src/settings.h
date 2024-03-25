@@ -22,4 +22,10 @@ enum OperationMode {
   Inflare = 2,
   Deflate = 3
 };
+
+enum Commands {
+  stop = 1,
+  start = 2,
+  setting = 3
+};
 const char* softAPpassword =  "12345678";
