@@ -16,6 +16,7 @@
 #include "SPIFFS.h"
 #include "ESPAsyncWebServer.h"
 #include "settings.h"
+#include <version.h>
 
 int backupProgress = 0;
 bool wifiInitialized = false;
@@ -79,6 +80,8 @@ String incompleteBLEMessage = "";
 class MyBLEServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
+      firstTimeConnceted=true;
+      //SendSettingsToMobile();
     };
 
     void onDisconnect(BLEServer* pServer) {
@@ -286,7 +289,7 @@ String getSettingsParams(const String &var)
 {
 
     Serial.println(var);
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" +  Software_VER};
+    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" +  VERSION_SHORT};
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -309,7 +312,7 @@ String getSettingsXML()
     XML += "<Precision>" + String(settings.Precision) + "</Precision>";    
     XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
     XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
-    XML += "<Software_VER>" + String(Software_VER) + "</Software_VER>";
+    XML += "<Software_VER>" + String(VERSION_SHORT) + "</Software_VER>";
     XML += "</settings>";
 
     Serial.println("getSettingsXML: " + XML);
@@ -330,6 +333,7 @@ String getPressureJSON()
 String getSettingsJSON()
 {
     String JSON = "{";
+    JSON += "operationMode: 4 ," ;    
     JSON += "'DeviceName': '" + settings.DeviceName + "',";
     JSON += "'wifissid': '" + settings.wifissid + "',";
     JSON += "'wifipassword': '" + settings.wifipassword + "',";
@@ -344,7 +348,7 @@ String getSettingsJSON()
     JSON += "'Precision': '" + String(settings.Precision) + "',";    
     JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
     JSON += "'CurrentPressure': '" + String(currentPressure) + "',";
-    JSON += "'Software_VER': '" + String(Software_VER) + "',";
+    JSON += "'Software_VER': '" + String(VERSION_SHORT) + "',";
     JSON += "'IP': '" + currentIP + "'";    
     JSON += "}";
 
