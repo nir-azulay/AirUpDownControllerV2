@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#define Software_VER 1.03        // Current version of BG Buddy, displayed at startup
+#define Software_VER 1.04        // Current version of BG Buddy, displayed at startup
 
 struct DeviceSettings{
     String DeviceName = "esp32-AirUpDownController";

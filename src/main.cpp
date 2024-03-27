@@ -319,8 +319,8 @@ String getSettingsXML()
 String getPressureJSON()
 {
     String JSON = "{";
-    JSON += "'Pressure': '" + String(currentPressure,1) + "',";
-    JSON += "'operationMode': '" + String(operationMode) + "'";
+    JSON += "Pressure: '" + String(currentPressure,1) + "',";
+    JSON += "operationMode: '" + String(operationMode) + "'";
     JSON += "}";
 
     Serial.println("getPressureJSON: " + JSON);
@@ -910,7 +910,7 @@ void OperateAir()
 
     if ((targetPressure - currentPressure)>settings.Precision)
         InflateAir();
-    else if ((targetPressure - currentPressure)<settings.Precision)
+    else if ((currentPressure - targetPressure )>settings.Precision)
         DeflateAir();
     else
         StopAir();
