@@ -995,9 +995,11 @@ double calculateDelatFactor()
 {
     // every PSI is 1 5 sec
 
-    double factor = abs(targetPressure - currentPressure) * 5;
-    // Serial.print(" calculateDelatFactor: ");
-    // Serial.print(factor);
+    double delta = targetPressure - currentPressure;
+    int multiplier = 5;
+    if (delta <0) multiplier = 10;
+    
+    double factor = abs(delta) * multiplier;
 
     if (factor == 0 || factor < 1)
         factor = 5;
