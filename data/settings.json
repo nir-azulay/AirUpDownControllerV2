@@ -1,5 +1,5 @@
 {
-    "DeviceName": "ESP32-BT-AirDownUp-Controller2",
+    "DeviceName": "esp32-AirUpDownController",
     "wifissid": "",
     "wifipassword": "",    
     "RelayCompressorPin": 16,
