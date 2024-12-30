@@ -27,3 +27,5 @@ void SendSettingsToMobile();
 void SendStatusToMobile();
 
 String getSettingsJSON();
+
+float readPressureFromSensor();

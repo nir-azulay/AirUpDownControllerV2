@@ -810,7 +810,12 @@ void loop()
     if (operationMode != Stop)
         OperateAir();
     else
-        StopAir();
+        {
+            StopAir();
+            currentPressure = readPressureFromSensor();
+            SendStatusToMobile();
+        }
+        
 
     delay(1000*settings.MessureWait);
 
