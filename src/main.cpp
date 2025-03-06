@@ -46,15 +46,12 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
 #pragma endregion WiFi declaration
 
-// Consts Declartions
-
 // Global variables
 double currentPressure = 0;
 double targetPressure = 0;
 OperationMode operationMode = Stop;
 
-DeviceSettings settings; // <- global settingsuration object
-
+// settings is now defined in settings.cpp
 
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;

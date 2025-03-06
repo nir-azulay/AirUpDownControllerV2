@@ -1,31 +1,46 @@
+#ifndef SETTINGS_H
+#define SETTINGS_H
+
 #include <Arduino.h>
-#define Software_VER 1.04        // Current version of BG Buddy, displayed at startup
 
-struct DeviceSettings{
-    String DeviceName = "esp32-AirUpDownController";
-    String wifissid = "";
-    String wifipassword =  "12345678";
-    int RelayCompressorPin = 25;
-    int RelayFreePin = 26;
-    int SensorPin = 27;
-    int MaxSecForStatus = 5;
-    bool AutoStart = false;
-    int SensorValueAt0PSI = 412;
-    int SensorValueAt50PSI = 3182;    
-    String BTPinCode = "1234";    
-    double MessureWait = 2;  
-    double Precision = 0.5;
+// Version definition
+extern const float Software_VER;
+
+// Device Settings Structure
+struct DeviceSettings {
+    String DeviceName;
+    String wifissid;
+    String wifipassword;
+    int RelayCompressorPin;
+    int RelayFreePin;
+    int SensorPin;
+    int MaxSecForStatus;
+    bool AutoStart;
+    int SensorValueAt0PSI;
+    int SensorValueAt50PSI;
+    String BTPinCode;
+    double MessureWait;
+    double Precision;
 };
 
+// Operation Modes
 enum OperationMode {
-  Stop = 1,
-  Inflare = 2,
-  Deflate = 3
+    Stop = 1,
+    Inflare = 2,
+    Deflate = 3
 };
 
+// Commands
 enum Commands {
-  stop = 1,
-  start = 2,
-  setting = 3
+    stop = 1,
+    start = 2,
+    setting = 3
 };
-const char* softAPpassword =  "12345678";
+
+// WiFi Settings
+extern const char* softAPpassword;
+
+// Global settings instance
+extern DeviceSettings settings;
+
+#endif // SETTINGS_H
