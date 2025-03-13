@@ -18,8 +18,9 @@
       document.getElementById("txt_SensorValueAt50PSI").value = aValues[9];
       document.getElementById("txt_BTPinCode").value = aValues[10];        
       document.getElementById("txt_MessureWait").value = aValues[11];  
-      document.getElementById("txt_Precision").value = aValues[12];              
-      document.getElementById("lbl_version").innerHTML = aValues[13];
+      document.getElementById("txt_Precision").value = aValues[12];
+      document.getElementById("chk_SimulationMode").checked = (aValues[13]=="1");              
+      document.getElementById("lbl_version").innerHTML = aValues[14];
     }
 
     function saveSettings()
@@ -37,7 +38,8 @@
       SensorValueAt50PSI: document.getElementById("txt_SensorValueAt50PSI").value,
       BTPinCode: document.getElementById("txt_BTPinCode").value,
       MessureWait: document.getElementById("txt_MessureWait").value,
-      Precision: document.getElementById("txt_Precision").value});
+      Precision: document.getElementById("txt_Precision").value,
+      SimulationMode: document.getElementById("chk_SimulationMode").checked});
                                       
       var urlwithQS = "/updateSettings?" + params.toString();
       var xhr = new XMLHttpRequest();

@@ -328,7 +328,7 @@ String getSettingsParams(const String &var)
 {
 
     Serial.println(var);
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" +  VERSION_SHORT};
+    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" + settings.SimulationMode + ";" + VERSION_SHORT};
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -436,6 +436,18 @@ void saveSettings(AsyncWebServerRequest *request)
             settings.MessureWait = p->value().toDouble();
         else if (paramName == "Precision")
             settings.Precision = p->value().toDouble();
+        else if (paramName == "SimulationMode")
+        {
+            String sSimulationMode = p->value();
+            settings.SimulationMode = sSimulationMode.equalsIgnoreCase("true");
+            isSimulationMode = settings.SimulationMode;
+            LOG_INFO("WEB", "Simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
+            
+            // Reset initial pressure if simulation mode is enabled
+            if (isSimulationMode) {
+                currentPressure = 0;
+            }
+        }
     }
 
 
@@ -1169,6 +1181,19 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();                    
     settings.BTPinCode = doc["BTPinCode"] | "1234";
+    
+    // Check if SimulationMode is included in the settings update
+    if (doc.containsKey("SimulationMode")) {
+        settings.SimulationMode = doc["SimulationMode"].as<bool>();
+        isSimulationMode = settings.SimulationMode;
+        LOG_INFO("BLE", "Simulation mode updated through settings: " + String(isSimulationMode ? "enabled" : "disabled"));
+        
+        // Reset initial pressure if simulation mode is enabled
+        if (isSimulationMode) {
+            currentPressure = 0;
+        }
+    }
+    
     LOG_INFO("BLE", "Saving settings and restarting");
     saveSettingFile();
     ESP.restart();

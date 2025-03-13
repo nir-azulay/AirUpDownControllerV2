@@ -108,9 +108,13 @@ Commands are sent as JSON objects through the Command Characteristic:
     "SensorValueAt50PSI": number,
     "MessureWait": number,
     "Precision": number,
-    "BTPinCode": "string"
+    "BTPinCode": "string",
+    "SimulationMode": boolean
 }
 ```
+- All fields are optional - only include the settings you want to update
+- After updating settings, the device will restart to apply the changes
+- The `SimulationMode` field can be used to enable (true) or disable (false) simulation mode
 
 #### 4. Simulation Mode Command
 ```json
