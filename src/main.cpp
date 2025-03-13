@@ -50,7 +50,7 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
 double currentPressure = 0;
 double targetPressure = 0;
 OperationMode operationMode = Stop;
-bool isSimulationMode = true;
+bool isSimulationMode = false;
 
 // Logging
 int currentLogLevel = DEFAULT_LOG_LEVEL;
@@ -654,7 +654,12 @@ void loadSettingsfile()
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();
     
-
+    // Load simulation mode setting if it exists
+    if (doc.containsKey("SimulationMode")) {
+        settings.SimulationMode = doc["SimulationMode"].as<bool>();
+        isSimulationMode = settings.SimulationMode;
+        LOG_INFO("SETTINGS", "Loaded simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
+    }
     
     // Close the file (Curiously, File's destructor doesn't close the file)
     file.close();
@@ -678,6 +683,7 @@ void saveSettingFile()
     doc["MessureWait"] = settings.MessureWait;
     doc["Precision"] = settings.Precision;    
     doc["BTPinCode"] = settings.BTPinCode;
+    doc["SimulationMode"] = settings.SimulationMode;
 
     if (SPIFFS.exists("/settings.json.bak"))
         SPIFFS.remove("/settings.json.bak");
@@ -794,6 +800,10 @@ void setup()
     LOG_DEBUG("SYSTEM", "Loading settings file");
     printSettingsFile();
     loadSettingsfile();
+    
+    // Ensure simulation mode is properly initialized from settings
+    isSimulationMode = settings.SimulationMode;
+    LOG_INFO("SYSTEM", "Simulation mode initialized: " + String(isSimulationMode ? "enabled" : "disabled"));
     
     LOG_INFO("WIFI", "Setting up WiFi connection");
     setupWiFi();
@@ -1170,7 +1180,13 @@ void handleSimulationCommand(DynamicJsonDocument &doc) {
         return;
     }
     isSimulationMode = doc["enabled"].as<bool>();
+    settings.SimulationMode = isSimulationMode;  // Update the settings struct
     LOG_INFO("BLE", "Simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
+    
+    // Save the setting to file
+    LOG_INFO("BLE", "Saving simulation mode setting to file");
+    saveSettingFile();
+    
     if (isSimulationMode) {
         currentPressure = 0; // Reset initial pressure in simulation mode
     }

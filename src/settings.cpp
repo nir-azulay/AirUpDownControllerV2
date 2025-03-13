@@ -20,5 +20,6 @@ DeviceSettings settings = {
     3182,                         // SensorValueAt50PSI
     "1234",                       // BTPinCode
     2.0,                          // MessureWait
-    0.5                           // Precision
+    0.5,                          // Precision
+    false                         // SimulationMode
 }; 

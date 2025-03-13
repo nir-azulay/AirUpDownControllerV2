@@ -21,6 +21,7 @@ struct DeviceSettings {
     String BTPinCode;
     double MessureWait;
     double Precision;
+    bool SimulationMode;
 };
 
 // Operation Modes
