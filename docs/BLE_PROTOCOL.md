@@ -55,6 +55,9 @@
     "SimulationMode": "boolean"
 }
 ```
+- All device settings are included in this notification
+- The `SimulationMode` field indicates whether simulation mode is currently enabled (true) or disabled (false)
+- This notification is sent when the device first connects to a client or when the client sends a Get Settings command
 
 #### 3. Target Pressure Reached Notification
 ```json
@@ -123,6 +126,8 @@ Commands are sent as JSON objects through the Command Characteristic:
   - הערכים מוגבלים לטווח של 0-50 PSI
   - קריאות מהחיישן האמיתי יתעלמו
   - הלחץ ההתחלתי יאופס ל-0 בעת הפעלת הסימולציה
+- **Important**: The simulation mode setting is now persistent and will be saved to the device's memory. The setting will be retained even after device restart or power cycle.
+- The current simulation mode status is included in the Settings Update notification as the `SimulationMode` field.
 
 #### 5. Log Level Command
 ```json
@@ -171,6 +176,7 @@ Commands are sent as JSON objects through the Command Characteristic:
 6. The device supports chunked BLE messages for larger payloads
 7. Pressure readings have a configurable precision (default 0.5 PSI)
 8. Pressure measurement wait time is configurable (default 2 seconds)
+9. All settings, including simulation mode, are persistent and saved to the device's flash memory
 
 ## Error Handling
 
