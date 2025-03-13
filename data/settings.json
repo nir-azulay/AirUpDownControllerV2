@@ -11,5 +11,6 @@
     "SensorValueAt50PSI": 2960,
     "BTPinCode": "1234",
     "MessureWait": 1,
-    "Precision": 0.5
+    "Precision": 0.5,
+    "SimulationMode": true
 }
