@@ -50,6 +50,27 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
 double currentPressure = 0;
 double targetPressure = 0;
 OperationMode operationMode = Stop;
+bool isSimulationMode = true;
+
+// Logging
+int currentLogLevel = DEFAULT_LOG_LEVEL;
+
+void setLogLevel(int level) {
+    if (level >= LOG_LEVEL_NONE && level <= LOG_LEVEL_VERBOSE) {
+        currentLogLevel = level;
+        Serial.print("Log level set to: ");
+        switch (level) {
+            case LOG_LEVEL_NONE:    Serial.println("NONE"); break;
+            case LOG_LEVEL_ERROR:   Serial.println("ERROR"); break;
+            case LOG_LEVEL_WARNING: Serial.println("WARNING"); break;
+            case LOG_LEVEL_INFO:    Serial.println("INFO"); break;
+            case LOG_LEVEL_DEBUG:   Serial.println("DEBUG"); break;
+            case LOG_LEVEL_VERBOSE: Serial.println("VERBOSE"); break;
+        }
+    } else {
+        Serial.println("Invalid log level. Use values between 0 (NONE) and 5 (VERBOSE)");
+    }
+}
 
 // settings is now defined in settings.cpp
 
@@ -77,30 +98,51 @@ String incompleteBLEMessage = "";
 class MyBLEServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
-      firstTimeConnceted=true;
-      //SendSettingsToMobile();
+      firstTimeConnceted = true;
+      LOG_INFO("BLE", "Client connected");
+      // Enable multiple connections
+      BLEDevice::startAdvertising();
     };
 
     void onDisconnect(BLEServer* pServer) {
       deviceConnected = false;
+      LOG_INFO("BLE", "Client disconnected");
+      
+      // Clear incomplete message on disconnect
+      incompleteBLEMessage = "";
+      
+      // Restart advertising
+      BLEDevice::startAdvertising();
     }
 };
 
 class CharacteristicCallBack: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pChar) override { 
-    String pChar2_value_string= "";
-    std::string pChar2_value_stdstr =  pChar->getValue();
-    pChar2_value_string += String(pChar2_value_stdstr.c_str());
-    Serial.println("pChar2: " + pChar2_value_string) + " " + pChar2_value_string.charAt(pChar2_value_string.length()-1); 
+    LOG_DEBUG("BLE", "CharacteristicCallBack::onWrite - Starting to process received value");
+    
+    std::string rxValue = pChar->getValue();
+    if (rxValue.length() > 0) {
+      String pChar2_value_string = String(rxValue.c_str());
+      
+      LOG_DEBUG("BLE", "Received value length: " + String(pChar2_value_string.length()));
+      LOG_VERBOSE("BLE", "Received value: " + pChar2_value_string);
+      LOG_VERBOSE("BLE", "Last character: " + String(pChar2_value_string.charAt(pChar2_value_string.length()-1)));
 
-    incompleteBLEMessage+=pChar2_value_string;
+      incompleteBLEMessage += pChar2_value_string;
 
-    if (pChar2_value_string.charAt(pChar2_value_string.length()-1)=='}')
-    {
+      // Check if message is complete (ends with })
+      if (pChar2_value_string.indexOf("}") >= 0) {
+        LOG_INFO("BLE", "Complete message received: " + incompleteBLEMessage);
         handleBLEMessage(incompleteBLEMessage);
-        incompleteBLEMessage="";
+        incompleteBLEMessage = "";
+      } else {
+        LOG_DEBUG("BLE", "Partial message received, waiting for more data");
+      }
+    } else {
+      LOG_WARNING("BLE", "Received empty value");
     }
     
+    LOG_DEBUG("BLE", "CharacteristicCallBack::onWrite - Finished processing value");
   }
 };
 
@@ -346,7 +388,8 @@ String getSettingsJSON()
     JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
     JSON += "'CurrentPressure': '" + String(currentPressure) + "',";
     JSON += "'Software_VER': '" + String(VERSION_SHORT) + "',";
-    JSON += "'IP': '" + currentIP + "'";    
+    JSON += "'IP': '" + currentIP + "',";
+    JSON += "'SimulationMode': '" + String(isSimulationMode) + "'";
     JSON += "}";
 
     Serial.println("getSettingsJSON: " + JSON);
@@ -677,77 +720,95 @@ void printSettingsFile()
 
 void setupBlueTooth()
 {
-     // Create the BLE Device
-  BLEDevice::init(settings.DeviceName.c_str());
-  BLEDevice::setMTU(517);
+    LOG_INFO("BLE", "Setting up Bluetooth...");
+    
+    // Create the BLE Device
+    BLEDevice::init(settings.DeviceName.c_str());
+    BLEDevice::setMTU(517);
+    LOG_DEBUG("BLE", "BLE Device initialized with name: " + settings.DeviceName);
 
-  // Create the BLE Server
-  pServer = BLEDevice::createServer();
-  //pServer->updatePeerMTU(pServer->getConnId(),200);
-  pServer->setCallbacks(new MyBLEServerCallbacks());
+    // Create the BLE Server
+    pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new MyBLEServerCallbacks());
+    LOG_DEBUG("BLE", "BLE Server created with callbacks");
 
-  // Create the BLE Service
-  BLEService *pService = pServer->createService(SERVICE_UUID);
+    // Create the BLE Service
+    BLEService *pService = pServer->createService(BLEUUID(SERVICE_UUID));
+    LOG_DEBUG("BLE", "BLE Service created with UUID: " + String(SERVICE_UUID));
 
-  // Create a BLE Characteristic
-  pCharacteristic = pService->createCharacteristic(
-                      CHAR1_UUID,
-                      BLECharacteristic::PROPERTY_NOTIFY
-                    );                   
+    // Create a BLE Characteristic
+    pCharacteristic = pService->createCharacteristic(
+        BLEUUID(CHAR1_UUID),
+        BLECharacteristic::PROPERTY_NOTIFY
+    );
+    LOG_DEBUG("BLE", "Notification characteristic created with UUID: " + String(CHAR1_UUID));
 
-  pCharacteristic_2 = pService->createCharacteristic(
-                      CHAR2_UUID,
-                      BLECharacteristic::PROPERTY_READ   |
-                      BLECharacteristic::PROPERTY_WRITE  
-                    );  
+    pCharacteristic_2 = pService->createCharacteristic(
+        BLEUUID(CHAR2_UUID),
+        BLECharacteristic::PROPERTY_READ   |
+        BLECharacteristic::PROPERTY_WRITE  |
+        BLECharacteristic::PROPERTY_WRITE_NR  // Add support for write without response
+    );
+    LOG_DEBUG("BLE", "Command characteristic created with UUID: " + String(CHAR2_UUID));
 
+    // Create a BLE Descriptor
+    pDescr = new BLEDescriptor((uint16_t)0x2901);
+    pDescr->setValue("Air Controller Status");
+    pCharacteristic->addDescriptor(pDescr);
+    
+    pBLE2902 = new BLE2902();
+    pBLE2902->setNotifications(true);
+    
+    // Add all Descriptors here
+    pCharacteristic->addDescriptor(pBLE2902);
+    pCharacteristic_2->addDescriptor(new BLE2902());
+    LOG_DEBUG("BLE", "Descriptors added to characteristics");
+    
+    // After defining the descriptors, set the callback functions
+    pCharacteristic_2->setCallbacks(new CharacteristicCallBack());
+    LOG_DEBUG("BLE", "Callbacks set for command characteristic");
+    
+    // Start the service
+    pService->start();
+    LOG_DEBUG("BLE", "BLE Service started");
 
-  // Create a BLE Descriptor
-  
-  pDescr = new BLEDescriptor((uint16_t)0x2901);
-  pDescr->setValue("A very interesting variable");
-  pCharacteristic->addDescriptor(pDescr);
-  
-  pBLE2902 = new BLE2902();
-  pBLE2902->setNotifications(true);
-  
-  
-  // Add all Descriptors here
-  pCharacteristic->addDescriptor(pBLE2902);
-  pCharacteristic_2->addDescriptor(new BLE2902());
-  
-  // After defining the desriptors, set the callback functions
-  pCharacteristic_2->setCallbacks(new CharacteristicCallBack());
-  
-  // Start the service
-  pService->start();
-
-  // Start advertising
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->setScanResponse(false);
-  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter  
-  BLEDevice::startAdvertising();
+    // Start advertising
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pAdvertising->setScanResponse(true);  // Enable scan response
+    pAdvertising->setMinPreferred(0x06);  // Improve connection rate
+    pAdvertising->setMaxPreferred(0x12);
+    BLEDevice::startAdvertising();
+    LOG_INFO("BLE", "BLE advertising started");
  
-  Serial.println("Waiting a client connection to notify...");
-
+    LOG_INFO("BLE", "BLE Server is ready for connections");
 }
 
 #pragma endregion settings
 
 void setup()
 {
-
     Serial.begin(115200);
+    LOG_INFO("SYSTEM", "Starting Air Controller v" + String(VERSION_SHORT));
+    
+    LOG_DEBUG("SYSTEM", "Loading settings file");
     printSettingsFile();
     loadSettingsfile();
+    
+    LOG_INFO("WIFI", "Setting up WiFi connection");
     setupWiFi();
+    
+    LOG_INFO("WEB", "Setting up web server");
     setupWebServer();
     client.setInsecure(); // skip verification
-    Serial.print("setup() running on core ");Serial.println(xPortGetCoreID());    
+    
+    LOG_DEBUG("SYSTEM", "Setup running on core " + String(xPortGetCoreID()));
+    
+    LOG_INFO("BLE", "Initializing Bluetooth");
     setupBlueTooth();
     
     // initiate relays Legs
+    LOG_DEBUG("GPIO", "Configuring GPIO pins");
     pinMode(settings.RelayCompressorPin, OUTPUT);
     pinMode(settings.RelayFreePin, OUTPUT);
     pinMode(settings.SensorPin, INPUT);
@@ -756,135 +817,198 @@ void setup()
     targetPressure = 0;
     currentPressure = 0;
 
-    Serial.println("finish setup");
+    LOG_INFO("SYSTEM", "Setup complete");
 }
+
+
 
 void BLESync()
 {
+    LOG_VERBOSE("BLE", "BLESync started");
+    
     if (deviceConnected) {
-        if (firstTimeConnceted)
-        {
-            firstTimeConnceted=false;
-            pCharacteristic->setValue(getSettingsJSON().c_str());
+        LOG_VERBOSE("BLE", "Device is connected");
+        
+        if (firstTimeConnceted) {
+            LOG_INFO("BLE", "First time connection - sending settings");
+            firstTimeConnceted = false;
+            
+            // Give time for connection to stabilize
+            delay(100);
+            
+            String settings = getSettingsJSON();
+            LOG_DEBUG("BLE", "Settings to send: " + settings);
+            
+            pCharacteristic->setValue(settings.c_str());
             pCharacteristic->notify();
-
+            LOG_INFO("BLE", "Initial settings sent");
         }
 
-        if (BLEBufferValue.length()>0)
-        {
-        pCharacteristic->setValue(BLEBufferValue.c_str());
-        pCharacteristic->notify();
-        BLEBufferValue= "";
+        if (BLEBufferValue.length() > 0) {
+            LOG_DEBUG("BLE", "Sending status update: " + BLEBufferValue);
+            pCharacteristic->setValue(BLEBufferValue.c_str());
+            pCharacteristic->notify();
+            
+            // Give time for client to process
+            delay(20);
+            
+            BLEBufferValue = "";
+            LOG_DEBUG("BLE", "Status update sent");
         }
     }
+    
     // disconnecting
     if (!deviceConnected && oldDeviceConnected) {
+        LOG_INFO("BLE", "Device disconnected, restarting advertising");
         delay(500); // give the bluetooth stack the chance to get things ready
         pServer->startAdvertising(); // restart advertising
-        Serial.println("start advertising");
         oldDeviceConnected = deviceConnected;
     }
+    
     // connecting
     if (deviceConnected && !oldDeviceConnected) {
-        // do stuff here on connecting
+        LOG_INFO("BLE", "New device connected");
         oldDeviceConnected = deviceConnected;
     }
+    
+    LOG_VERBOSE("BLE", "BLESync finished");
 }
 
 void loop()
 {
-    if (upgradeInProgress) return;
-    //Serial.print("loop: ");
-    // skip x tiks to avoid reading presure every loop
-    if (tikingCounter == 0)
+    if (upgradeInProgress) {
+        LOG_VERBOSE("SYSTEM", "Upgrade in progress, skipping loop");
+        return;
+    }
+    
+    // skip x tiks to avoid reading pressure every loop
+    if (tikingCounter == 0) {
+        LOG_VERBOSE("PRESSURE", "Reading current pressure");
         readCurrentPressure();
+    }
 
     tikingCounter++;
 
-    
+    LOG_VERBOSE("BLE", "Syncing BLE status");
     BLESync();
 
-    if (operationMode != Stop)
+    if (operationMode != Stop) {
+        LOG_VERBOSE("AIR", "Operating air system");
         OperateAir();
-    else
-        {
-            StopAir();
+    } else {
+        LOG_VERBOSE("AIR", "System in stop mode");
+        StopAir();
+        
+        // In simulation mode, we still need to update the pressure even in stop mode
+        // but don't change the pressure value
+        if (isSimulationMode) {
+            LOG_VERBOSE("PRESSURE", "Simulation mode - reading pressure in stop mode");
+            currentPressure = readPressureFromSensor(); // This won't change the pressure in stop mode
+        } else {
             currentPressure = readPressureFromSensor();
-            SendStatusToMobile();
         }
         
-
-    delay(1000*settings.MessureWait);
+        SendStatusToMobile();
+    }
+        
+    LOG_VERBOSE("SYSTEM", "Delaying for " + String(settings.MessureWait * 1000) + "ms");
+    delay(1000 * settings.MessureWait);
 
     if (tikingCounter > calculateDelatFactor())
         tikingCounter = 0;
-
 }
 
 float readPressureFromSensor()
 {
-    Serial.print("readPressureFromSensor Started ");
+    LOG_DEBUG("PRESSURE", "Reading pressure from sensor");
 
-    int sensorVal = analogRead(settings.SensorPin); // 0 to 4095
+    if (isSimulationMode) {
+        LOG_DEBUG("PRESSURE", "Using simulation mode");
+        // במצב סימולציה, נחשב את השינוי בלחץ בהתאם למצב הפעולה
+        float pressureChange = 0;
+        
+        if (operationMode == Inflate) {
+            pressureChange = 0.5; // עלייה של 0.5 PSI בכל קריאה
+            LOG_DEBUG("PRESSURE", "Simulation: Inflating, pressure change: +0.5 PSI");
+        } else if (operationMode == Deflate) {
+            pressureChange = -0.3; // ירידה של 0.3 PSI בכל קריאה
+            LOG_DEBUG("PRESSURE", "Simulation: Deflating, pressure change: -0.3 PSI");
+        }
+        
+        currentPressure += pressureChange;
+        
+        // הגבלת הערכים לטווח הגיוני
+        if (currentPressure < 0) currentPressure = 0;
+        if (currentPressure > 50) currentPressure = 50;
+        
+        LOG_INFO("PRESSURE", "Simulated pressure: " + String(currentPressure) + " PSI");
+        return currentPressure;
+    }
 
-    Serial.println("");
-    Serial.print("====================== Sensor Value: ");
-    Serial.print(sensorVal);
-    Serial.println(" ========================");
+    // קוד מקורי לקריאת החיישן
+    int sensorVal = analogRead(settings.SensorPin);
+    LOG_DEBUG("PRESSURE", "Raw sensor value: " + String(sensorVal));
 
-    float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI; // 2894-1345
-    float onePSI = range / 50;                                               // 49
-    Serial.println("onePSI: " + String(onePSI));
-    float zeroPSI = settings.SensorValueAt0PSI; // 400
+    float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
+    float onePSI = range / 50;
+    LOG_VERBOSE("PRESSURE", "One PSI value: " + String(onePSI));
+    
+    float zeroPSI = settings.SensorValueAt0PSI;
     float pressure_pascal = (sensorVal - zeroPSI) / onePSI;
-    if (pressure_pascal<1) pressure_pascal = 0;
-    // float zeroPSI =  settings.SensorValueAt0PSI - (onePSI*10); //400
-    // float pressure_pascal =settings.SensorCorrectionFactor* (sensorVal - zeroPSI)/onePSI;
+    if (pressure_pascal < 1) pressure_pascal = 0;
     float pressure_bar = pressure_pascal / 14.7;
 
-    Serial.print(" PSI = ");
-    Serial.print(pressure_pascal);
-    Serial.print(" BAR = ");
-    Serial.println(pressure_bar);
-
+    LOG_INFO("PRESSURE", "Measured pressure: " + String(pressure_pascal) + " PSI (" + String(pressure_bar) + " BAR)");
     return pressure_pascal;
 }
 
 void readCurrentPressure()
 {
-    Serial.print("readCurrentPressure Started ");
+    LOG_DEBUG("PRESSURE", "Starting pressure measurement");
 
-    // in order to check Pressure need to close valve first
+    // If in simulation mode, just read the pressure without stopping air flow
+    if (isSimulationMode) {
+        LOG_DEBUG("PRESSURE", "Simulation mode - reading pressure without stopping air flow");
+        currentPressure = readPressureFromSensor();
+        LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
+        SendStatusToMobile();
+        return;
+    }
+
+    // For real sensor readings, we need to close valve first
     OperationMode backupCurrentValveState = operationMode;
+    LOG_DEBUG("PRESSURE", "Saving current operation mode: " + String(backupCurrentValveState));
 
     StopAir();
     // wait for stabilze pressure
+    LOG_DEBUG("PRESSURE", "Waiting for pressure to stabilize");
     delay(1000 * settings.MessureWait);
     currentPressure = readPressureFromSensor();
 
     while (abs(readPressureFromSensor() - currentPressure) > 1)
     {
+        LOG_DEBUG("PRESSURE", "Pressure not stable, waiting more");
         delay(1000 * settings.MessureWait);
         currentPressure = readPressureFromSensor();
     }
 
     // restore opration mode
+    LOG_DEBUG("PRESSURE", "Restoring operation mode: " + String(backupCurrentValveState));
     operationMode = backupCurrentValveState;
-    if (operationMode == Inflare)
+    if (operationMode == Inflate)
         InflateAir();
     else if (operationMode == Deflate)
         DeflateAir();
     else
         StopAir();
 
-    Serial.print(" current Pressure: ");
-    Serial.println(currentPressure);
+    LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
     SendStatusToMobile();
 }
 
 void StopAir()
 {
-    //Serial.print(" StopAir Started ");
+    LOG_DEBUG("AIR", "Stopping air flow");
     operationMode = Stop;
     digitalWrite(settings.RelayCompressorPin, HIGH);
     digitalWrite(settings.RelayFreePin, HIGH);
@@ -892,7 +1016,7 @@ void StopAir()
 
 void DeflateAir()
 {
-    Serial.print(" DeflateAir Started ");
+    LOG_INFO("AIR", "Deflating air");
     operationMode = Deflate;
     digitalWrite(settings.RelayCompressorPin, HIGH);
     digitalWrite(settings.RelayFreePin, LOW);
@@ -900,97 +1024,171 @@ void DeflateAir()
 
 void InflateAir()
 {
-    Serial.print(" InflateAir Started ");
-    operationMode = Inflare;
+    LOG_INFO("AIR", "Inflating air");
+    operationMode = Inflate;
     digitalWrite(settings.RelayCompressorPin, LOW);
     digitalWrite(settings.RelayFreePin, HIGH);
 }
 
 void OperateAir()
 {
-    Serial.print("OperateAir ");
-    Serial.print(" Target Pressure: ");
-    Serial.print(targetPressure);
-    Serial.print(" Current Pressure: ");
-    Serial.print(currentPressure);
+    LOG_DEBUG("AIR", "Operating air system - Target: " + String(targetPressure) + " PSI, Current: " + String(currentPressure) + " PSI");
 
-    if ((targetPressure - currentPressure)>settings.Precision)
+    // Check if we're within the precision range of the target pressure
+    bool targetReached = abs(currentPressure - targetPressure) <= settings.Precision;
+
+    if ((targetPressure - currentPressure) > settings.Precision) {
+        LOG_INFO("AIR", "Pressure too low, inflating");
         InflateAir();
-    else if ((currentPressure - targetPressure )>settings.Precision)
+    } else if ((currentPressure - targetPressure) > settings.Precision) {
+        LOG_INFO("AIR", "Pressure too high, deflating");
         DeflateAir();
-    else
-        StopAir();
-
-    Serial.println(" OperateAir finished");
+    } else {
+        // We've reached the target pressure
+        if (operationMode != Stop) {
+            LOG_INFO("AIR", "Pressure at target, stopping");
+            StopAir();
+            
+            // Send notification that target pressure has been reached
+            SendTargetReachedNotification();
+        }
+    }
 }
 
 void SendStatusToMobile()
 {
-
-
-        Serial.print(" SendStatusToMobile started ");
-
-        BLEBufferValue = getPressureJSON();
-
-        Serial.print("SendStatusToMobile: ");
-        Serial.print(BLEBufferValue);
-        Serial.println(" SendStatusToMobile finished");
+    LOG_DEBUG("BLE", "Preparing status update for mobile");
+    BLEBufferValue = getPressureJSON();
+    LOG_VERBOSE("BLE", "Status update prepared: " + BLEBufferValue);
 }
 
 void SendSettingsToMobile()
 {
-
-    Serial.print(" SendSettingsToMobile started ");
-    {
-        BLEBufferValue =  getSettingsJSON();
-
-        BLESync();
-        
-        Serial.print(BLEBufferValue);
-        Serial.println(" SendSettingsToMobile finished");
-    }
+    LOG_INFO("BLE", "Sending settings to mobile");
+    BLEBufferValue = getSettingsJSON();
+    LOG_VERBOSE("BLE", "Settings to send: " + BLEBufferValue);
+    
+    BLESync();
+    
+    LOG_INFO("BLE", "Settings sent to mobile");
 }
 
 
 void handleBLEMessage(String Message)
 {
-    Serial.print("handleBLEMessage started ");
+    LOG_INFO("BLE", "Processing BLE message");
     String sMessage = Message;
 
     DynamicJsonDocument doc(1024);
-    deserializeJson(doc, sMessage);
-
-    Serial.println("lodaing json from app : " + sMessage);
-    int  cmd = doc["command"].as<int>();
-    switch (cmd)
-    {
-        case 1: //Commands.stop:
-            StopAir();            
-            break;
-        case 2: //Commands.start:
-            targetPressure = doc["targetPressure"].as<int>();
-            Serial.println("targetPressure : " + String(targetPressure));
-            OperateAir();
-            break; 
-        case 3: //Commands.setting:      
-            settings.DeviceName = doc["DeviceName"].as<String>();
-            settings.wifissid = doc["wifissid"].as<String>();
-            settings.wifipassword = doc["wifipassword"].as<String>();
-            settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
-            settings.RelayFreePin = doc["RelayFreePin"].as<int>();
-            settings.SensorPin = doc["SensorPin"].as<int>();
-            settings.AutoStart = (bool)doc["AutoStart"];
-            settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-            settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
-            settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
-            settings.MessureWait = doc["MessureWait"].as<double>();
-            settings.Precision = doc["Precision"].as<double>();                    
-            settings.BTPinCode = doc["BTPinCode"] | "1234";
-            saveSettingFile();
-            ESP.restart();                                                
-            break;
+    DeserializationError error = deserializeJson(doc, sMessage);
+    
+    if (error) {
+        LOG_ERROR("BLE", "Failed to parse JSON: " + String(error.c_str()));
+        return;
     }
-    Serial.println(" handleBLEMessage finished");
+
+    LOG_INFO("BLE", "JSON from app: " + sMessage);
+    
+    if (!doc.containsKey("command")) {
+        LOG_ERROR("BLE", "Missing 'command' field in message");
+        return;
+    }
+    
+    int cmd = doc["command"].as<int>();
+    LOG_INFO("BLE", "Command received: " + String(cmd));
+    
+    if (cmd == 1) {
+        // Stop command
+        handleStopCommand();
+    }
+    else if (cmd == 2) {
+        // Start command
+        handleStartCommand(doc);
+    }
+    else if (cmd == 3) {
+        // Settings command
+        handleSettingsCommand(doc);
+    }
+    else if (cmd == 4) {
+        // Simulation command
+        handleSimulationCommand(doc);
+    }
+    else if (cmd == 5) {
+        // Log level command
+        handleLogLevelCommand(doc);
+    }
+    else if (cmd == 6) {
+        // Get settings command
+        handleGetSettingsCommand();
+    }
+    else {
+        // Unknown command
+        LOG_WARNING("BLE", "Unknown command received: " + String(cmd));
+    }
+    
+    LOG_INFO("BLE", "BLE message processing completed");
+}
+
+void handleStopCommand() {
+    LOG_INFO("BLE", "Stop command received");
+    StopAir();
+}
+
+void handleStartCommand(DynamicJsonDocument &doc) {
+    if (!doc.containsKey("targetPressure")) {
+        LOG_ERROR("BLE", "Missing 'targetPressure' field for start command");
+        return;
+    }
+    targetPressure = doc["targetPressure"].as<int>();
+    LOG_INFO("BLE", "Start command received with target pressure: " + String(targetPressure));
+    OperateAir();
+}
+
+void handleSettingsCommand(DynamicJsonDocument &doc) {
+    LOG_INFO("BLE", "Settings update command received");
+    settings.DeviceName = doc["DeviceName"].as<String>();
+    settings.wifissid = doc["wifissid"].as<String>();
+    settings.wifipassword = doc["wifipassword"].as<String>();
+    settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
+    settings.RelayFreePin = doc["RelayFreePin"].as<int>();
+    settings.SensorPin = doc["SensorPin"].as<int>();
+    settings.AutoStart = (bool)doc["AutoStart"];
+    settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
+    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
+    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
+    settings.MessureWait = doc["MessureWait"].as<double>();
+    settings.Precision = doc["Precision"].as<double>();                    
+    settings.BTPinCode = doc["BTPinCode"] | "1234";
+    LOG_INFO("BLE", "Saving settings and restarting");
+    saveSettingFile();
+    ESP.restart();
+}
+
+void handleSimulationCommand(DynamicJsonDocument &doc) {
+    if (!doc.containsKey("enabled")) {
+        LOG_ERROR("BLE", "Missing 'enabled' field for simulation command");
+        return;
+    }
+    isSimulationMode = doc["enabled"].as<bool>();
+    LOG_INFO("BLE", "Simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
+    if (isSimulationMode) {
+        currentPressure = 0; // Reset initial pressure in simulation mode
+    }
+}
+
+void handleLogLevelCommand(DynamicJsonDocument &doc) {
+    if (!doc.containsKey("level")) {
+        LOG_ERROR("BLE", "Missing 'level' field for log level command");
+        return;
+    }
+    int level = doc["level"].as<int>();
+    LOG_INFO("BLE", "Setting log level to: " + String(level));
+    setLogLevel(level);
+}
+
+void handleGetSettingsCommand() {
+    LOG_INFO("BLE", "Get settings command received");
+    SendSettingsToMobile();
 }
 
 double calculateDelatFactor()
@@ -1009,8 +1207,29 @@ double calculateDelatFactor()
     if (factor > settings.MaxSecForStatus)
         factor = settings.MaxSecForStatus;
 
-    Serial.print(" calculateDelatFactor: ");
-    Serial.println(factor);
+    //Serial.print(" calculateDelatFactor: ");
+    //Serial.println(factor);
 
     return factor;
+}
+
+// Add this new function to send target pressure reached notification
+void SendTargetReachedNotification() {
+    LOG_INFO("BLE", "Target pressure reached, sending notification");
+    
+    String JSON = "{";
+    JSON += "'type': 'target_reached',";
+    JSON += "'targetPressure': '" + String(targetPressure) + "',";
+    JSON += "'currentPressure': '" + String(currentPressure, 1) + "'";
+    JSON += "}";
+    
+    LOG_DEBUG("BLE", "Target reached notification: " + JSON);
+    
+    if (deviceConnected) {
+        pCharacteristic->setValue(JSON.c_str());
+        pCharacteristic->notify();
+        LOG_INFO("BLE", "Target reached notification sent");
+    } else {
+        LOG_WARNING("BLE", "Device not connected, couldn't send target reached notification");
+    }
 }

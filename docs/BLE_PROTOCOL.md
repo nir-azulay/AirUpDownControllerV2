@@ -51,9 +51,23 @@
     "BTPinCode": "string",
     "CurrentPressure": "number",
     "Software_VER": "string",
-    "IP": "string"
+    "IP": "string",
+    "SimulationMode": "boolean"
 }
 ```
+
+#### 3. Target Pressure Reached Notification
+```json
+{
+    "type": "target_reached",
+    "targetPressure": "number",
+    "currentPressure": "number"
+}
+```
+- `type`: Always "target_reached" to identify this notification type
+- `targetPressure`: The target pressure that was set
+- `currentPressure`: The current pressure reading when target was reached
+- This notification is sent once when the system reaches the target pressure and stops
 
 ### Client to Device Commands
 
@@ -94,6 +108,46 @@ Commands are sent as JSON objects through the Command Characteristic:
     "BTPinCode": "string"
 }
 ```
+
+#### 4. Simulation Mode Command
+```json
+{
+    "command": 4,
+    "enabled": boolean
+}
+```
+- `enabled`: true להפעלת מצב סימולציה, false לכיבוי מצב סימולציה
+- במצב סימולציה:
+  - הלחץ יעלה ב-0.5 PSI בכל קריאה בזמן ניפוח
+  - הלחץ ירד ב-0.3 PSI בכל קריאה בזמן שחרור אוויר
+  - הערכים מוגבלים לטווח של 0-50 PSI
+  - קריאות מהחיישן האמיתי יתעלמו
+  - הלחץ ההתחלתי יאופס ל-0 בעת הפעלת הסימולציה
+
+#### 5. Log Level Command
+```json
+{
+    "command": 5,
+    "level": number
+}
+```
+- `level`: רמת הלוג הרצויה (0-5)
+  - 0: NONE - ללא לוגים
+  - 1: ERROR - שגיאות בלבד
+  - 2: WARNING - שגיאות ואזהרות
+  - 3: INFO - מידע כללי (ברירת מחדל)
+  - 4: DEBUG - מידע לדיבוג
+  - 5: VERBOSE - מידע מפורט מאוד
+
+#### 6. Get Settings Command
+```json
+{
+    "command": 6
+}
+```
+- שליחת פקודה זו תגרום למכשיר לשלוח את כל ההגדרות הנוכחיות
+- המכשיר ישלח את ההגדרות בפורמט JSON דרך ה-Notification Characteristic
+- אין צורך בפרמטרים נוספים לפקודה זו
 
 ## Connection Flow
 

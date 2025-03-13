@@ -5,6 +5,7 @@
 #include <BLEDevice.h>
 #include <SPIFFS.h>
 #include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
 #include "settings.h"
 
 // Function Declarations
@@ -18,8 +19,15 @@ void setupBlueTooth();
 // BLE Functions
 void BLESync();
 void handleBLEMessage(String Message);
+void handleStopCommand();
+void handleStartCommand(DynamicJsonDocument &doc);
+void handleSettingsCommand(DynamicJsonDocument &doc);
+void handleSimulationCommand(DynamicJsonDocument &doc);
+void handleLogLevelCommand(DynamicJsonDocument &doc);
+void handleGetSettingsCommand();
 void SendSettingsToMobile();
 void SendStatusToMobile();
+void SendTargetReachedNotification();
 
 // Air Control Functions
 void readCurrentPressure();
@@ -54,5 +62,29 @@ String processor_update(const String &var);
 // System Functions
 void restart();
 void loop();
+
+// Logging levels
+#define LOG_LEVEL_NONE    0
+#define LOG_LEVEL_ERROR   1
+#define LOG_LEVEL_WARNING 2
+#define LOG_LEVEL_INFO    3
+#define LOG_LEVEL_DEBUG   4
+#define LOG_LEVEL_VERBOSE 5
+
+// Default log level
+#define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
+
+// Current log level (can be changed at runtime)
+extern int currentLogLevel;
+
+// Logging macros
+#define LOG_ERROR(tag, message)   if(currentLogLevel >= LOG_LEVEL_ERROR)   { Serial.print("[ERROR]["); Serial.print(tag); Serial.print("] "); Serial.println(message); }
+#define LOG_WARNING(tag, message) if(currentLogLevel >= LOG_LEVEL_WARNING) { Serial.print("[WARN]["); Serial.print(tag); Serial.print("] "); Serial.println(message); }
+#define LOG_INFO(tag, message)    if(currentLogLevel >= LOG_LEVEL_INFO)    { Serial.print("[INFO]["); Serial.print(tag); Serial.print("] "); Serial.println(message); }
+#define LOG_DEBUG(tag, message)   if(currentLogLevel >= LOG_LEVEL_DEBUG)   { Serial.print("[DEBUG]["); Serial.print(tag); Serial.print("] "); Serial.println(message); }
+#define LOG_VERBOSE(tag, message) if(currentLogLevel >= LOG_LEVEL_VERBOSE) { Serial.print("[VERB]["); Serial.print(tag); Serial.print("] "); Serial.println(message); }
+
+// Function to set log level
+void setLogLevel(int level);
 
 #endif // MAIN_H

@@ -26,7 +26,7 @@ struct DeviceSettings {
 // Operation Modes
 enum OperationMode {
     Stop = 1,
-    Inflare = 2,
+    Inflate = 2,
     Deflate = 3
 };
 
