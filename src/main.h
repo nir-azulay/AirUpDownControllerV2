@@ -62,6 +62,7 @@ String processor_update(const String &var);
 // System Functions
 void restart();
 void loop();
+void scheduleRestart(int delayMs);
 
 // Logging levels
 #define LOG_LEVEL_NONE    0

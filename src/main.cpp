@@ -396,6 +396,34 @@ String getSettingsJSON()
     return JSON;
 }
 
+void scheduleRestart(int delayMs) {
+    static bool restartScheduled = false;
+    if (!restartScheduled) {
+        restartScheduled = true;
+        LOG_INFO("SYSTEM", "Scheduling restart in " + String(delayMs) + " ms");
+        
+        // הקצאת זיכרון עבור הפרמטר שיועבר למשימה
+        int* pDelay = new int(delayMs);
+        
+        // יצירת טיימר שיאתחל את המערכת לאחר ההשהיה שהוגדרה
+        xTaskCreate(
+            [](void* parameter) {
+                int delay = *((int*)parameter);
+                vTaskDelay(delay / portTICK_PERIOD_MS);
+                // שחרור הזיכרון שהוקצה
+                delete (int*)parameter;
+                ESP.restart();
+                vTaskDelete(NULL);
+            },
+            "restart_task",
+            2048,
+            pDelay,  // העברת המצביע לזיכרון שהוקצה
+            1,
+            NULL
+        );
+    }
+}
+
 void saveSettings(AsyncWebServerRequest *request)
 {
     Serial.println("saveSettings");
@@ -459,7 +487,9 @@ void saveSettings(AsyncWebServerRequest *request)
 
     Serial.println("Update complete");
     Serial.flush();
-    ESP.restart();
+    
+    // שימוש בפונקציה החדשה לתזמון אתחול מחדש
+    scheduleRestart(1000);
 }
 
 void setupWebServer()
@@ -517,7 +547,10 @@ void setupWebServer()
     server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
               {
     request->send(200, "text/html", "<HTML><BODY><script>setTimeout(function() { window.location.href = '/'; }, 2000);</script>Device will reboot in 2 seconds </BODY></HTML>");
-    ESP.restart(); });
+    
+    // שימוש בפונקציה החדשה לתזמון אתחול מחדש
+    scheduleRestart(1000);
+    });
 
     server.on(
         "/doUpdate", HTTP_POST,
@@ -855,9 +888,6 @@ void BLESync()
             LOG_INFO("BLE", "First time connection - sending settings");
             firstTimeConnceted = false;
             
-            // Give time for connection to stabilize
-            delay(100);
-            
             String settings = getSettingsJSON();
             LOG_DEBUG("BLE", "Settings to send: " + settings);
             
@@ -871,9 +901,6 @@ void BLESync()
             pCharacteristic->setValue(BLEBufferValue.c_str());
             pCharacteristic->notify();
             
-            // Give time for client to process
-            delay(20);
-            
             BLEBufferValue = "";
             LOG_DEBUG("BLE", "Status update sent");
         }
@@ -882,7 +909,6 @@ void BLESync()
     // disconnecting
     if (!deviceConnected && oldDeviceConnected) {
         LOG_INFO("BLE", "Device disconnected, restarting advertising");
-        delay(500); // give the bluetooth stack the chance to get things ready
         pServer->startAdvertising(); // restart advertising
         oldDeviceConnected = deviceConnected;
     }
@@ -899,9 +925,33 @@ void BLESync()
 void loop()
 {
     if (upgradeInProgress) {
-        LOG_VERBOSE("SYSTEM", "Upgrade in progress, skipping loop");
+        //LOG_VERBOSE("SYSTEM", "Upgrade in progress, skipping loop");
         return;
     }
+
+    static unsigned long lastExecutionTime = 0;
+    static unsigned long lastBLEDisconnectTime = 0;
+    static unsigned long lastBLENotifyTime = 0;
+    unsigned long currentTime = millis();
+    unsigned long interval = 1000 * settings.MessureWait;
+
+    // תן לשרת האינטרנט זמן לעבד בקשות
+    yield();
+
+    // Skip if not enough time has passed
+    if (currentTime - lastExecutionTime < interval) {
+        // בדוק אם צריך לטפל בניתוק BLE
+        if (!deviceConnected && oldDeviceConnected && 
+            (currentTime - lastBLEDisconnectTime >= 500)) {
+            LOG_INFO("BLE", "Device disconnected, restarting advertising");
+            pServer->startAdvertising(); // restart advertising
+            oldDeviceConnected = deviceConnected;
+            lastBLEDisconnectTime = currentTime;
+        }
+        return;
+    }
+
+    lastExecutionTime = currentTime;
     
     // skip x tiks to avoid reading pressure every loop
     if (tikingCounter == 0) {
@@ -932,12 +982,16 @@ void loop()
         
         SendStatusToMobile();
     }
-        
-    LOG_VERBOSE("SYSTEM", "Delaying for " + String(settings.MessureWait * 1000) + "ms");
-    delay(1000 * settings.MessureWait);
+
+    LOG_VERBOSE("SYSTEM", "Loop execution completed");
 
     if (tikingCounter > calculateDelatFactor())
         tikingCounter = 0;
+
+    // תן לשרת האינטרנט זמן לעבד בקשות בסוף הלולאה
+    yield();
+    
+    delay(10);
 }
 
 float readPressureFromSensor()
@@ -1004,13 +1058,27 @@ void readCurrentPressure()
     StopAir();
     // wait for stabilze pressure
     LOG_DEBUG("PRESSURE", "Waiting for pressure to stabilize");
-    delay(1000 * settings.MessureWait);
+    
+    // שימוש בלולאה עם yield במקום delay כדי לאפשר לשרת האינטרנט לעבד בקשות
+    unsigned long startTime = millis();
+    while (millis() - startTime < 1000 * settings.MessureWait) {
+        yield(); // תן לשרת האינטרנט זמן לעבד בקשות
+        delay(10); // השהייה קצרה כדי לא להעמיס על המעבד
+    }
+    
     currentPressure = readPressureFromSensor();
 
     while (abs(readPressureFromSensor() - currentPressure) > 1)
     {
         LOG_DEBUG("PRESSURE", "Pressure not stable, waiting more");
-        delay(1000 * settings.MessureWait);
+        
+        // שימוש בלולאה עם yield במקום delay כדי לאפשר לשרת האינטרנט לעבד בקשות
+        startTime = millis();
+        while (millis() - startTime < 1000 * settings.MessureWait) {
+            yield(); // תן לשרת האינטרנט זמן לעבד בקשות
+            delay(10); // השהייה קצרה כדי לא להעמיס על המעבד
+        }
+        
         currentPressure = readPressureFromSensor();
     }
 
