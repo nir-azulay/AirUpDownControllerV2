@@ -1,34 +1,38 @@
-<!DOCTYPE HTML>
-<html class="HTML">
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
 
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" type="text/css" href="update.css" />
-  <script type="text/javascript" src="update.js"></script>
-  <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js'></script>
-  </style>
- 
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>עדכון קושחה - בקר לחץ אוויר</title>  
+  <link rel="stylesheet" type="text/css" href="common.css">
+  <script type="text/javascript" src="update.js"></script>  
 </head>
-<title>FIRMWARE UPDATE</title>
-<body>
-  <title>FIRMWARE UPDATE</title>
-  <h1>Firmware Update</h1>
-  <form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>
-    <input type='file' name='update' id='file' onchange='sub(this)' style=display:none accept=".bin*">
-    <label id='file-input' for='file'> Choose file...</label>
-    <input type="submit" id="updateBtn" class="btn2" disabled="disabled" value="Update">
 
-    <input type="button" class="btn" onclick="location.href='/filesystem';" value="File manager">
-    <input type="button" class="btn" onclick="location.href='/';" value="Main page">
-    <br>
-    <div id='prg' style=display:none>Ready to Update</div>
-    <br>
-    <div id='prgbar' style=display:none>
-      <div id='bar'></div>
+<body>
+  <div class="container">
+    <h1>עדכון קושחה</h1>
+    <div class="card">
+      <form id="upload_form" method='POST' action='/update' enctype='multipart/form-data' class="file-upload">
+        <label for="update">בחר קובץ קושחה:</label>
+        <div class="file-input-container">
+          <input type="file" id="update" name="update" accept=".bin" onchange="sub(this)">
+          <div id="file-input">לא נבחר קובץ</div>
+        </div>
+        <div id="error-message" class="error" style="display: none;"></div>
+        <button type="submit" id="updateBtn" disabled>עדכן קושחה</button>
+      </form>
+      
+      <div class="progress-container" id="progress-container">
+        <div id="prgbar">
+          <div id="bar"></div>
+        </div>
+        <div id="prg">מוכן להעלאה</div>
+      </div>
     </div>
-  </form>
-  <script>
-       document.getElementById("upload_form").addEventListener("submit", submitForm);
-  </script>   
+    <div class="nav-links">
+      <a href="/">חזרה לתפריט</a>
+    </div>
+  </div>
 </body>
 </html>

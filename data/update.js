@@ -1,47 +1,79 @@
 {
     function sub(obj) {
-        var a = obj.value;
-        console.log(a);
-        var fileName = a.replace(/^.*[\\\/]/, '')
-        console.log(fileName);
-        document.getElementById('file-input').innerHTML = fileName;
-        document.getElementById('updateBtn').disabled = false;
-        document.getElementById('prgbar').style.display = 'block';
-        document.getElementById('prg').style.display = 'block';
-    };
-    function submitForm(e)
-    {
+        if (!obj.files || !obj.files[0]) {
+            document.getElementById('file-input').textContent = 'לא נבחר קובץ';
+            document.getElementById('updateBtn').disabled = true;
+            return;
+        }
+
+        const fileName = obj.files[0].name;
+        document.getElementById('file-input').textContent = 'הקובץ שנבחר: ' + fileName;
         
-        document.getElementById('updateBtn').disabled = "disabled";
-        e.preventDefault();
-        var form = $('#upload_form')[0];
-        var data = new FormData(form);
+        if (!fileName.toLowerCase().endsWith('.bin')) {
+            document.getElementById('file-input').textContent = 'שגיאה: יש לבחור קובץ מסוג .bin';
+            document.getElementById('updateBtn').disabled = true;
+            return;
+        }
 
-        $.ajax({
-            url: '/doUpdate',
-            type: 'POST',
-            data: data,
-            contentType: false,
-            processData: false,
-            xhr: function () {
-                var xhr = new window.XMLHttpRequest();
-                xhr.upload.addEventListener('progress', function (evt) {
-                    if (evt.lengthComputable) {
-                        var per = evt.loaded / evt.total;
-                        $('#prg').html('Progress: ' + Math.round(per * 100) + "%");
-                        $('#bar').css('width', Math.round(per * 100) + "%");
-                    }
-                }, false);
-                return xhr;
-            },
-            success: function (d, s) {
-                console.log('success!');
-                alert("Successfully updated");
-                setTimeout("location.href = '../';", 2000);
-
-            },
-            error: function (a, b, c) {
-            }
-        });
+        document.getElementById('updateBtn').disabled = false;
+        document.getElementById('progress-container').style.display = 'block';
+        document.getElementById('prg').textContent = 'מוכן להעלאה';
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('upload_form');
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('update');
+            if (!fileInput.files || !fileInput.files[0]) {
+                document.getElementById('prg').textContent = 'שגיאה: לא נבחר קובץ';
+                return;
+            }
+
+            document.getElementById('updateBtn').disabled = true;
+            document.getElementById('prg').textContent = 'מתחיל בהעלאה...';
+            
+            const formData = new FormData(form);
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', function(evt) {
+                if (evt.lengthComputable) {
+                    const percentComplete = (evt.loaded / evt.total) * 100;
+                    document.getElementById('bar').style.width = percentComplete + '%';
+                    document.getElementById('prg').textContent = 'התקדמות: ' + Math.round(percentComplete) + '%';
+                }
+            });
+            
+            xhr.addEventListener('load', function() {
+                if (xhr.status === 200) {
+                    document.getElementById('prg').textContent = 'העדכון הושלם בהצלחה! המערכת תאתחל את עצמה...';
+                    document.getElementById('bar').style.width = '100%';
+                    setTimeout(function() {
+                        window.location.href = '/';
+                    }, 3000);
+                } else {
+                    document.getElementById('prg').textContent = 'שגיאה בעדכון: ' + (xhr.responseText || xhr.statusText);
+                    document.getElementById('updateBtn').disabled = false;
+                    document.getElementById('bar').style.width = '0%';
+                }
+            });
+            
+            xhr.addEventListener('error', function() {
+                document.getElementById('prg').textContent = 'שגיאה בתקשורת עם השרת';
+                document.getElementById('updateBtn').disabled = false;
+                document.getElementById('bar').style.width = '0%';
+            });
+            
+            xhr.addEventListener('abort', function() {
+                document.getElementById('prg').textContent = 'העלאה בוטלה';
+                document.getElementById('updateBtn').disabled = false;
+                document.getElementById('bar').style.width = '0%';
+            });
+            
+            xhr.open('POST', '/update');
+            xhr.send(formData);
+        });
+    });
 }
