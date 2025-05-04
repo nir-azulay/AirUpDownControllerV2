@@ -6,7 +6,7 @@
     "RelayFreePin": 17,
     "SensorPin": 32,
     "AutoStart": true,
-    "MaxSecForStatus": 1,
+    "MaxSecForStatus": 10,
     "SensorValueAt0PSI": 412,
     "SensorValueAt50PSI": 2960,
     "BTPinCode": "1234",
