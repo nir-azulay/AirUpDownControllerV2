@@ -20,14 +20,10 @@ private:
     static constexpr int ADC_RESOLUTION = 4095;
     static constexpr float CAL_PRESSURE_LOW = 0.0;
     static constexpr float CAL_PRESSURE_HIGH = 50.0;
-    static constexpr float CAL_VOLTAGE_LOW = 0.228;
-    static constexpr float CAL_VOLTAGE_HIGH = 2.853;
     static constexpr float SENSOR_MAX_MPA = 0.5;
     static constexpr float SENSOR_MAX_PSI = 72.5;
     static constexpr float SENSOR_MIN_V = 0.5;
     static constexpr float SENSOR_MAX_V = 4.5;
-    static constexpr float VOLTAGE_PER_PSI = (CAL_VOLTAGE_HIGH - CAL_VOLTAGE_LOW) / (CAL_PRESSURE_HIGH - CAL_PRESSURE_LOW);
-    static constexpr float EXPECTED_MAX_VOLTAGE = CAL_VOLTAGE_LOW + (VOLTAGE_PER_PSI * SENSOR_MAX_PSI);
     static constexpr int NUM_SAMPLES = 30;
     static constexpr float ALPHA = 0.3;
 

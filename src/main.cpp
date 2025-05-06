@@ -390,8 +390,8 @@ String getSettingsJSON()
     JSON += "'SensorPin': '" + String(settings.SensorPin) + "',";
     JSON += "'AutoStart': '" + String(settings.AutoStart) + "',";
     JSON += "'MaxSecForStatus': '" + String(settings.MaxSecForStatus) + "',";
-    JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI) + "',";
-    JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI) + "',";
+    JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI, 3) + "',";
+    JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI, 3) + "',";
     JSON += "'MessureWait': '" + String(settings.MessureWait) + "',";
     JSON += "'Precision': '" + String(settings.Precision) + "',";    
     JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
@@ -464,9 +464,9 @@ void saveSettings(AsyncWebServerRequest *request)
         else if (paramName == "MaxSecForStatus")
             settings.MaxSecForStatus = p->value().toInt();
         else if (paramName == "SensorValueAt0PSI")
-            settings.SensorValueAt0PSI = p->value().toInt();
+            settings.SensorValueAt0PSI = p->value().toFloat();
         else if (paramName == "SensorValueAt50PSI")
-            settings.SensorValueAt50PSI = p->value().toInt();
+            settings.SensorValueAt50PSI = p->value().toFloat();
         else if (paramName == "BTPinCode")
             settings.BTPinCode = p->value().toInt();
         else if (paramName == "MessureWait")
@@ -697,8 +697,8 @@ void loadSettingsfile()
     settings.SensorPin = doc["SensorPin"].as<int>();
     settings.AutoStart = (bool)doc["AutoStart"];
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
-    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
+    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
+    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
     settings.BTPinCode = doc["BTPinCode"].as<String>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();
@@ -1211,8 +1211,8 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     settings.SensorPin = doc["SensorPin"].as<int>();
     settings.AutoStart = (bool)doc["AutoStart"];
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
-    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
+    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
+    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();                    
     settings.BTPinCode = doc["BTPinCode"] | "1234";

@@ -91,11 +91,14 @@ float PressureSensor::exponentialMovingAverage(float newValue, float oldValue, f
 }
 
 float PressureSensor::voltageToRealPressure(float voltage) {
-    float pressure = PressureSensor::CAL_PRESSURE_LOW + ((voltage - PressureSensor::CAL_VOLTAGE_LOW) / PressureSensor::VOLTAGE_PER_PSI);
+    float cal_voltage_low = settings.SensorValueAt0PSI;
+    float cal_voltage_high = settings.SensorValueAt50PSI;
+    float voltage_per_psi = (cal_voltage_high - cal_voltage_low) / (CAL_PRESSURE_HIGH - CAL_PRESSURE_LOW);
+    float pressure = CAL_PRESSURE_LOW + ((voltage - cal_voltage_low) / voltage_per_psi);
     if (pressure < 0) {
         pressure = 0;
-    } else if (pressure > PressureSensor::SENSOR_MAX_PSI) {
-        pressure = PressureSensor::SENSOR_MAX_PSI;
+    } else if (pressure > SENSOR_MAX_PSI) {
+        pressure = SENSOR_MAX_PSI;
     }
     return pressure;
 } 
