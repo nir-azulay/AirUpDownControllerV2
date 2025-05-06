@@ -3,45 +3,42 @@
 
 #include <Arduino.h>
 
-class ExponentialMovingAverage {
-private:
-    float alpha;
-    float currentEMA;
-    bool initialized;
-
-public:
-    ExponentialMovingAverage(float smoothingFactor = 0.1);
-    float update(float newValue);
-    float getCurrentEMA() const;
-    void reset();
-};
-
 class PressureSensor {
-private:
-    ExponentialMovingAverage ema;
-    const int numSamples = 30;
-    bool isSimulationMode;
-    float currentPressure;
-    int operationMode;  // Store as int, convert in implementation
-
-    float readRawPressure();
-    float simulatePressure();
-    float convertRawToPSI(int rawValue);
-
 public:
-    PressureSensor();
-    
-    // Configuration methods
-    void setSimulationMode(bool enabled);
-    void setOperationMode(int mode);  // Accept as int, convert in implementation
-    
-    // Pressure reading methods
-    float getCurrentPressure() const;
-    float readPressure();
-    
-    // Utility methods
-    void reset();
-    float convertToBars(float psi);
+    PressureSensor(int pin = 34);
+    void begin();
+    float readFilteredPressure(); // Returns filtered pressure in PSI
+    int readRawADC() const;       // Returns last raw ADC value
+    float readVoltage() const;    // Returns last calculated real voltage (after divider compensation)
+
+private:
+    // Pin
+    int sensorPin;
+
+    // Calibration constants
+    static constexpr float ADC_REF_VOLTAGE = 3.3;
+    static constexpr int ADC_RESOLUTION = 4095;
+    static constexpr float CAL_PRESSURE_LOW = 0.0;
+    static constexpr float CAL_PRESSURE_HIGH = 50.0;
+    static constexpr float CAL_VOLTAGE_LOW = 0.228;
+    static constexpr float CAL_VOLTAGE_HIGH = 2.853;
+    static constexpr float SENSOR_MAX_MPA = 0.5;
+    static constexpr float SENSOR_MAX_PSI = 72.5;
+    static constexpr float SENSOR_MIN_V = 0.5;
+    static constexpr float SENSOR_MAX_V = 4.5;
+    static constexpr float VOLTAGE_PER_PSI = (CAL_VOLTAGE_HIGH - CAL_VOLTAGE_LOW) / (CAL_PRESSURE_HIGH - CAL_PRESSURE_LOW);
+    static constexpr float EXPECTED_MAX_VOLTAGE = CAL_VOLTAGE_LOW + (VOLTAGE_PER_PSI * SENSOR_MAX_PSI);
+    static constexpr int NUM_SAMPLES = 30;
+    static constexpr float ALPHA = 0.3;
+
+    // State
+    float filteredPressure;
+    int lastRawADC;
+    float lastVoltage;
+
+    // Helpers
+    float exponentialMovingAverage(float newValue, float oldValue, float alpha);
+    float voltageToRealPressure(float voltage);
 };
 
 #endif // PRESSURE_SENSOR_H 

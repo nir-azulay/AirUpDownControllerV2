@@ -11,109 +11,91 @@
 
 #include "PressureSensor.h"
 #include "settings.h"
-
-// ExponentialMovingAverage implementation
-ExponentialMovingAverage::ExponentialMovingAverage(float smoothingFactor) 
-    : alpha(smoothingFactor), currentEMA(0.0f), initialized(false) {}
-
-float ExponentialMovingAverage::update(float newValue) {
-    if (!initialized) {
-        currentEMA = newValue;
-        initialized = true;
-    } else {
-        currentEMA = alpha * newValue + (1.0f - alpha) * currentEMA;
-    }
-    return currentEMA;
-}
-
-float ExponentialMovingAverage::getCurrentEMA() const {
-    return currentEMA;
-}
-
-void ExponentialMovingAverage::reset() {
-    initialized = false;
-    currentEMA = 0.0f;
-}
+#include "../include/main.h"
 
 // PressureSensor implementation
-PressureSensor::PressureSensor() 
-    : ema(0.1f),  // Default smoothing factor
-      isSimulationMode(settings.SimulationMode),
-      currentPressure(0.0f),
-      operationMode(static_cast<int>(Stop)),
-      numSamples(30) {}
+PressureSensor::PressureSensor(int pin)
+    : sensorPin(pin), filteredPressure(0), lastRawADC(0), lastVoltage(0) {}
 
-void PressureSensor::setSimulationMode(bool enabled) {
-    isSimulationMode = enabled;
+void PressureSensor::begin() {
+    analogReadResolution(12); // Set ADC to 12-bit resolution (0-4095)
+    delay(1000); // Let the sensor and capacitors stabilize
 }
 
-void PressureSensor::setOperationMode(int mode) {
-    operationMode = mode;
-}
+float PressureSensor::readFilteredPressure() {
+    int samples[PressureSensor::NUM_SAMPLES];
+    int validSamples = 0;
 
-float PressureSensor::getCurrentPressure() const {
-    return currentPressure;
-}
+    // Take multiple samples
+    for (int i = 0; i < PressureSensor::NUM_SAMPLES; i++) {
+        int sample = analogRead(sensorPin);
+        if (sample > 0) {
+            samples[validSamples++] = sample;
+        }
+        delayMicroseconds(20);
+    }
 
-float PressureSensor::readPressure() {
-    float rawPressure;
-    if (isSimulationMode) {
-        rawPressure = simulatePressure();
+    if (validSamples < PressureSensor::NUM_SAMPLES / 2) {
+        lastRawADC = 0;
+        lastVoltage = 0;
+        return 0;
+    }
+
+    // Sort the valid samples
+    for (int i = 0; i < validSamples - 1; i++) {
+        for (int j = i + 1; j < validSamples; j++) {
+            if (samples[j] < samples[i]) {
+                int temp = samples[i];
+                samples[i] = samples[j];
+                samples[j] = temp;
+            }
+        }
+    }
+
+    // Get the median value
+    float medianADC;
+    if (validSamples % 2 == 1) {
+        medianADC = samples[validSamples / 2];
     } else {
-        rawPressure = readRawPressure();
+        medianADC = (samples[validSamples / 2 - 1] + samples[validSamples / 2]) / 2.0f;
     }
-    
-    currentPressure = ema.update(rawPressure);
-    return currentPressure;
+    lastRawADC = (int)medianADC;
+
+    // Convert to voltage at ADC pin
+    float voltageAtADC = medianADC * (PressureSensor::ADC_REF_VOLTAGE / PressureSensor::ADC_RESOLUTION);
+    // Calculate real sensor voltage (before voltage divider)
+    float realVoltage = voltageAtADC * 2.0;
+    lastVoltage = realVoltage;
+
+    // Convert voltage to pressure using calibration curve
+    float pressure = voltageToRealPressure(realVoltage);
+
+    // Debug output
+    Serial.print(medianADC, 0); Serial.print(",");
+    Serial.print(realVoltage, 3); Serial.print(",");
+    Serial.print(pressure, 1); Serial.println();
+
+    return pressure;
 }
 
-float PressureSensor::readRawPressure() {
-    for (int i = 0; i < numSamples; ++i) {
-        int raw = analogRead(settings.SensorPin);
-        ema.update(static_cast<float>(raw));
-        delay(10); // Small delay to allow ADC to settle
+int PressureSensor::readRawADC() const {
+    return lastRawADC;
+}
+
+float PressureSensor::readVoltage() const {
+    return lastVoltage;
+}
+
+float PressureSensor::exponentialMovingAverage(float newValue, float oldValue, float alpha) {
+    return alpha * newValue + (1 - alpha) * oldValue;
+}
+
+float PressureSensor::voltageToRealPressure(float voltage) {
+    float pressure = PressureSensor::CAL_PRESSURE_LOW + ((voltage - PressureSensor::CAL_VOLTAGE_LOW) / PressureSensor::VOLTAGE_PER_PSI);
+    if (pressure < 0) {
+        pressure = 0;
+    } else if (pressure > PressureSensor::SENSOR_MAX_PSI) {
+        pressure = PressureSensor::SENSOR_MAX_PSI;
     }
-    float emaRaw = ema.getCurrentEMA();
-    return convertRawToPSI(emaRaw);
-}
-
-float PressureSensor::simulatePressure() {
-    static float simulatedPressure = 0.0f;
-    const float changeRate = 0.1f;  // PSI per update
-    
-    // Simulate pressure changes based on operation mode
-    switch (static_cast<OperationMode>(operationMode)) {
-        case Inflate:
-            simulatedPressure += changeRate;
-            break;
-        case Deflate:
-            simulatedPressure = max(0.0f, simulatedPressure - changeRate);
-            break;
-        case Stop:
-        default:
-            // Pressure remains constant
-            break;
-    }
-    
-    return simulatedPressure;
-}
-
-float PressureSensor::convertRawToPSI(int rawValue) {
-    // Convert raw value to PSI using calibration values
-    float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
-    float onePSI = range / 50.0f;
-    float zeroPSI = settings.SensorValueAt0PSI;
-    float pressure = (rawValue - zeroPSI) / onePSI;
-    
-    return (pressure < 1.0f) ? 0.0f : pressure;
-}
-
-void PressureSensor::reset() {
-    ema.reset();
-    currentPressure = 0.0f;
-    operationMode = static_cast<int>(Stop);
-}
-
-float PressureSensor::convertToBars(float psi) {
-    return psi * 0.0689476f;  // 1 PSI = 0.0689476 bar
+    return pressure;
 } 
