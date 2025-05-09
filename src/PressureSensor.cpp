@@ -35,6 +35,10 @@ float PressureSensor::readFilteredPressure() {
         delayMicroseconds(20);
     }
 
+    // Debug output for number of valid samples
+    Serial.print("Valid samples: ");
+    Serial.println(validSamples);
+
     if (validSamples < PressureSensor::NUM_SAMPLES / 2) {
         lastRawADC = 0;
         lastVoltage = 0;
@@ -60,6 +64,10 @@ float PressureSensor::readFilteredPressure() {
         medianADC = (samples[validSamples / 2 - 1] + samples[validSamples / 2]) / 2.0f;
     }
     lastRawADC = (int)medianADC;
+
+    // Debug output for median ADC value
+    Serial.print("Median ADC: ");
+    Serial.println(medianADC);
 
     // Convert to voltage at ADC pin
     float voltageAtADC = medianADC * (PressureSensor::ADC_REF_VOLTAGE / PressureSensor::ADC_RESOLUTION);
