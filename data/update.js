@@ -72,7 +72,7 @@
                 document.getElementById('bar').style.width = '0%';
             });
             
-            xhr.open('POST', '/update');
+            xhr.open('POST', '/doUpdate');
             xhr.send(formData);
         });
     });

@@ -35,14 +35,33 @@ input {
 
 #bar,
 #prgbar {
-  background-color: #f1f1f1;
-  border-radius: 10px
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  height: 8px;
+  width: 100%;
+  margin: 10px 0;
+  overflow: hidden;
 }
 
 #bar {
   background-color: #00acc1;
   width: 0%;
-  height: 10px;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+#prg {
+  font-size: 14px;
+  color: #666;
+  margin: 5px 0;
+}
+
+.progress-container {
+  margin: 15px auto;
+  padding: 10px;
+  background: #f8f8f8;
+  border-radius: 4px;
+  max-width: 440px;
 }
 
 form {
@@ -168,4 +187,17 @@ p {
 
 label {
   text-align: left;
+}
+
+#prgbar {
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  height: 8px;
+  width: 100%;
+  margin: 10px 0;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
 }
