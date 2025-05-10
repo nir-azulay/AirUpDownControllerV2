@@ -17,7 +17,6 @@
 #include "ESPAsyncWebServer.h"
 #include "settings.h"
 #include <version.h>
-#include "PressureSensor.h"
 
 int backupProgress = 0;
 bool wifiInitialized = false;
@@ -48,22 +47,13 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
 #pragma endregion WiFi declaration
 
 // Global variables
-PressureSensor pressureSensor;
+double currentPressure = 0;
 double targetPressure = 0;
 OperationMode operationMode = Stop;
 bool isSimulationMode = false;
 
 // Logging
 int currentLogLevel = DEFAULT_LOG_LEVEL;
-
-// Constants for pressure reading
-#define PRESSURE_SAMPLES 30  // Number of samples for pressure reading
-
-// Add global variable for simulation
-static float simulatedPressure = 0.0f;
-
-float getCurrentPressure();
-void updateSimulatedPressure();
 
 void setLogLevel(int level) {
     if (level >= LOG_LEVEL_NONE && level <= LOG_LEVEL_VERBOSE) {
@@ -345,6 +335,7 @@ String getSettingsParams(const String &var)
 
 String getSettingsXML()
 {
+
     String XML = "<settings>";
     XML += "<DeviceName>" + settings.DeviceName + "</DeviceName>";
     XML += "<wifissid>" + settings.wifissid + "</wifissid>";
@@ -359,7 +350,7 @@ String getSettingsXML()
     XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
     XML += "<Precision>" + String(settings.Precision) + "</Precision>";    
     XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
-    XML += "<CurrentPressure>" + String(getCurrentPressure()) + "</CurrentPressure>";
+    XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
     XML += "<Software_VER>" + String(VERSION_SHORT) + "</Software_VER>";
     XML += "</settings>";
 
@@ -370,11 +361,11 @@ String getSettingsXML()
 String getPressureJSON()
 {
     String JSON = "{";
-    JSON += "Pressure: '" + String(getCurrentPressure(),1) + "',";
+    JSON += "Pressure: '" + String(currentPressure,1) + "',";
     JSON += "operationMode: '" + String(operationMode) + "'";
     JSON += "}";
 
-    LOG_DEBUG("PRESSURE", "getPressureJSON: " + JSON);
+    Serial.println("getPressureJSON: " + JSON);
     return JSON;
 }
 
@@ -390,12 +381,12 @@ String getSettingsJSON()
     JSON += "'SensorPin': '" + String(settings.SensorPin) + "',";
     JSON += "'AutoStart': '" + String(settings.AutoStart) + "',";
     JSON += "'MaxSecForStatus': '" + String(settings.MaxSecForStatus) + "',";
-    JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI, 3) + "',";
-    JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI, 3) + "',";
+    JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI) + "',";
+    JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI) + "',";
     JSON += "'MessureWait': '" + String(settings.MessureWait) + "',";
     JSON += "'Precision': '" + String(settings.Precision) + "',";    
     JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
-    JSON += "'CurrentPressure': '" + String(getCurrentPressure()) + "',";
+    JSON += "'CurrentPressure': '" + String(currentPressure) + "',";
     JSON += "'Software_VER': '" + String(VERSION_SHORT) + "',";
     JSON += "'IP': '" + currentIP + "',";
     JSON += "'SimulationMode': '" + String(isSimulationMode) + "'";
@@ -464,9 +455,9 @@ void saveSettings(AsyncWebServerRequest *request)
         else if (paramName == "MaxSecForStatus")
             settings.MaxSecForStatus = p->value().toInt();
         else if (paramName == "SensorValueAt0PSI")
-            settings.SensorValueAt0PSI = p->value().toFloat();
+            settings.SensorValueAt0PSI = p->value().toInt();
         else if (paramName == "SensorValueAt50PSI")
-            settings.SensorValueAt50PSI = p->value().toFloat();
+            settings.SensorValueAt50PSI = p->value().toInt();
         else if (paramName == "BTPinCode")
             settings.BTPinCode = p->value().toInt();
         else if (paramName == "MessureWait")
@@ -479,6 +470,11 @@ void saveSettings(AsyncWebServerRequest *request)
             settings.SimulationMode = sSimulationMode.equalsIgnoreCase("true");
             isSimulationMode = settings.SimulationMode;
             LOG_INFO("WEB", "Simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
+            
+            // Reset initial pressure if simulation mode is enabled
+            if (isSimulationMode) {
+                currentPressure = 0;
+            }
         }
     }
 
@@ -697,8 +693,8 @@ void loadSettingsfile()
     settings.SensorPin = doc["SensorPin"].as<int>();
     settings.AutoStart = (bool)doc["AutoStart"];
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
-    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
+    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
+    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
     settings.BTPinCode = doc["BTPinCode"].as<String>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();
@@ -850,7 +846,7 @@ void setup()
     printSettingsFile();
     loadSettingsfile();
     
-    // Initialize pressure sensor with simulation mode from settings
+    // Ensure simulation mode is properly initialized from settings
     isSimulationMode = settings.SimulationMode;
     LOG_INFO("SYSTEM", "Simulation mode initialized: " + String(isSimulationMode ? "enabled" : "disabled"));
     
@@ -874,6 +870,7 @@ void setup()
 
     // clear memory
     targetPressure = 0;
+    currentPressure = 0;
 
     LOG_INFO("SYSTEM", "Setup complete");
 }
@@ -978,7 +975,12 @@ void loop()
         // but don't change the pressure value
         if (isSimulationMode) {
             LOG_VERBOSE("PRESSURE", "Simulation mode - reading pressure in stop mode");
+            currentPressure = readPressureFromSensor(); // This won't change the pressure in stop mode
+        } else {
+            currentPressure = readPressureFromSensor();
         }
+        
+        SendStatusToMobile();
     }
 
     LOG_VERBOSE("SYSTEM", "Loop execution completed");
@@ -1074,7 +1076,8 @@ void readCurrentPressure()
     // If in simulation mode, just read the pressure without stopping air flow
     if (isSimulationMode) {
         LOG_DEBUG("PRESSURE", "Simulation mode - reading pressure without stopping air flow");
-        LOG_INFO("PRESSURE", "Current pressure: " + String(pressureSensor.readFilteredPressure()) + " PSI");
+        currentPressure = readPressureFromSensor();
+        LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
         SendStatusToMobile();
         return;
     }
@@ -1094,7 +1097,7 @@ void readCurrentPressure()
         delay(10); // השהייה קצרה כדי לא להעמיס על המעבד
     }
     
-    float currentPressure = readPressureFromSensor();
+    currentPressure = readPressureFromSensor();
 
     while (abs(readPressureFromSensor() - currentPressure) > 1)
     {
@@ -1120,7 +1123,7 @@ void readCurrentPressure()
     else
         StopAir();
 
-    LOG_INFO("PRESSURE", "Current pressure: " + String(pressureSensor.readFilteredPressure()) + " PSI");
+    LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
     SendStatusToMobile();
 }
 
@@ -1130,9 +1133,6 @@ void StopAir()
     operationMode = Stop;
     digitalWrite(settings.RelayCompressorPin, HIGH);
     digitalWrite(settings.RelayFreePin, HIGH);
-    
-    // Reset pressure sensor when stopping
-    // pressureSensor.reset();
 }
 
 void DeflateAir()
@@ -1153,15 +1153,15 @@ void InflateAir()
 
 void OperateAir()
 {
-    LOG_DEBUG("AIR", "Operating air system - Target: " + String(targetPressure) + " PSI, Current: " + String(pressureSensor.readFilteredPressure()) + " PSI");
+    LOG_DEBUG("AIR", "Operating air system - Target: " + String(targetPressure) + " PSI, Current: " + String(currentPressure) + " PSI");
 
     // Check if we're within the precision range of the target pressure
-    bool targetReached = abs(pressureSensor.readFilteredPressure() - targetPressure) <= settings.Precision;
+    bool targetReached = abs(currentPressure - targetPressure) <= settings.Precision;
 
-    if ((targetPressure - pressureSensor.readFilteredPressure()) > settings.Precision) {
+    if ((targetPressure - currentPressure) > settings.Precision) {
         LOG_INFO("AIR", "Pressure too low, inflating");
         InflateAir();
-    } else if ((pressureSensor.readFilteredPressure() - targetPressure) > settings.Precision) {
+    } else if ((currentPressure - targetPressure) > settings.Precision) {
         LOG_INFO("AIR", "Pressure too high, deflating");
         DeflateAir();
     } else {
@@ -1275,8 +1275,8 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     settings.SensorPin = doc["SensorPin"].as<int>();
     settings.AutoStart = (bool)doc["AutoStart"];
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
-    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
+    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
+    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();                    
     settings.BTPinCode = doc["BTPinCode"] | "1234";
@@ -1286,6 +1286,11 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
         settings.SimulationMode = doc["SimulationMode"].as<bool>();
         isSimulationMode = settings.SimulationMode;
         LOG_INFO("BLE", "Simulation mode updated through settings: " + String(isSimulationMode ? "enabled" : "disabled"));
+        
+        // Reset initial pressure if simulation mode is enabled
+        if (isSimulationMode) {
+            currentPressure = 0;
+        }
     }
     
     LOG_INFO("BLE", "Saving settings and restarting");
@@ -1299,13 +1304,16 @@ void handleSimulationCommand(DynamicJsonDocument &doc) {
         return;
     }
     isSimulationMode = doc["enabled"].as<bool>();
-    settings.SimulationMode = isSimulationMode;
-    
+    settings.SimulationMode = isSimulationMode;  // Update the settings struct
     LOG_INFO("BLE", "Simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
     
     // Save the setting to file
     LOG_INFO("BLE", "Saving simulation mode setting to file");
     saveSettingFile();
+    
+    if (isSimulationMode) {
+        currentPressure = 0; // Reset initial pressure in simulation mode
+    }
 }
 
 void handleLogLevelCommand(DynamicJsonDocument &doc) {
@@ -1327,7 +1335,7 @@ double calculateDelatFactor()
 {
     // every PSI is 1 5 sec
 
-    double delta = targetPressure - pressureSensor.readFilteredPressure();
+    double delta = targetPressure - currentPressure;
     int multiplier = 5;
     if (delta <0) multiplier = 10;
     
@@ -1352,7 +1360,7 @@ void SendTargetReachedNotification() {
     String JSON = "{";
     JSON += "'type': 'target_reached',";
     JSON += "'targetPressure': '" + String(targetPressure) + "',";
-    JSON += "'currentPressure': '" + String(pressureSensor.readFilteredPressure(), 1) + "'";
+    JSON += "'currentPressure': '" + String(currentPressure, 1) + "'";
     JSON += "}";
     
     LOG_DEBUG("BLE", "Target reached notification: " + JSON);
@@ -1364,34 +1372,4 @@ void SendTargetReachedNotification() {
     } else {
         LOG_WARNING("BLE", "Device not connected, couldn't send target reached notification");
     }
-}
-
-// Helper to get the current pressure (real or simulated)
-float getCurrentPressure() {
-    if (isSimulationMode) {
-        return simulatedPressure;
-    } else {
-        return pressureSensor.readFilteredPressure();
-    }
-}
-
-// In loop(), update simulatedPressure if isSimulationMode is true
-// (Inflate: +0.5, Deflate: -0.3, Stop: no change, clamp to 0-50)
-// Call this at the start of loop()
-void updateSimulatedPressure() {
-    if (!isSimulationMode) return;
-    switch (operationMode) {
-        case Inflate:
-            simulatedPressure += 0.5f;
-            break;
-        case Deflate:
-            simulatedPressure -= 0.3f;
-            break;
-        case Stop:
-        default:
-            // No change
-            break;
-    }
-    if (simulatedPressure < 0) simulatedPressure = 0;
-    if (simulatedPressure > 50) simulatedPressure = 50;
 }
