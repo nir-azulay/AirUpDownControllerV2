@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>עדכון קושחה - בקר לחץ אוויר</title>  
-  <link rel="stylesheet" type="text/css" href="common.css">
+  <link rel="stylesheet" type="text/css" href="/update.css">
   <script type="text/javascript" src="update.js"></script>  
 </head>
 
@@ -13,7 +13,7 @@
   <div class="container">
     <h1>עדכון קושחה</h1>
     <div class="card">
-      <form id="upload_form" method='POST' action='/update' enctype='multipart/form-data' class="file-upload">
+      <form id="upload_form" method='POST' action='/doUpdate' enctype='multipart/form-data' class="file-upload">
         <label for="update">בחר קובץ קושחה:</label>
         <div class="file-input-container">
           <input type="file" id="update" name="update" accept=".bin" onchange="sub(this)">

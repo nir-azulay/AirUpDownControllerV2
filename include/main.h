@@ -73,7 +73,7 @@ void scheduleRestart(int delayMs);
 #define LOG_LEVEL_VERBOSE 5
 
 // Default log level
-#define DEFAULT_LOG_LEVEL LOG_LEVEL_INFO
+#define DEFAULT_LOG_LEVEL LOG_LEVEL_DEBUG
 
 // Current log level (can be changed at runtime)
 extern int currentLogLevel;

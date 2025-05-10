@@ -16,8 +16,8 @@ struct DeviceSettings {
     int SensorPin;
     int MaxSecForStatus;
     bool AutoStart;
-    int SensorValueAt0PSI;
-    int SensorValueAt50PSI;
+    float SensorValueAt0PSI;
+    float SensorValueAt50PSI;
     String BTPinCode;
     double MessureWait;
     double Precision;
