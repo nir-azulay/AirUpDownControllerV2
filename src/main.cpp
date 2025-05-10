@@ -1021,9 +1021,40 @@ float readPressureFromSensor()
         return currentPressure;
     }
 
-    // קוד מקורי לקריאת החיישן
-    int sensorVal = analogRead(settings.SensorPin);
-    LOG_DEBUG("PRESSURE", "Raw sensor value: " + String(sensorVal));
+    // Read 50 samples from the sensor
+    const int NUM_SAMPLES = 50;
+    int samples[NUM_SAMPLES];
+    
+    LOG_DEBUG("PRESSURE", "Reading " + String(NUM_SAMPLES) + " samples from sensor");
+    
+    // Collect samples
+    for(int i = 0; i < NUM_SAMPLES; i++) {
+        samples[i] = analogRead(settings.SensorPin);
+        delay(50); // Small delay between readings
+    }
+    
+    // Sort samples
+    for(int i = 0; i < NUM_SAMPLES-1; i++) {
+        for(int j = i + 1; j < NUM_SAMPLES; j++) {
+            if(samples[i] > samples[j]) {
+                int temp = samples[i];
+                samples[i] = samples[j];
+                samples[j] = temp;
+            }
+        }
+    }
+    
+    // Calculate average of middle 30% (35% to 65%)
+    int startIdx = NUM_SAMPLES * 0.35;
+    int endIdx = NUM_SAMPLES * 0.65;
+    long sum = 0;
+    
+    for(int i = startIdx; i < endIdx; i++) {
+        sum += samples[i];
+    }
+    
+    int sensorVal = sum / (endIdx - startIdx);
+    LOG_DEBUG("PRESSURE", "Filtered sensor value: " + String(sensorVal));
 
     float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
     float onePSI = range / 50;
