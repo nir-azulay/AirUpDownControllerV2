@@ -1022,7 +1022,7 @@ float readPressureFromSensor()
     }
 
     // Read 50 samples from the sensor
-    const int NUM_SAMPLES = 50;
+    const int NUM_SAMPLES = 25;
     int samples[NUM_SAMPLES];
     
     LOG_DEBUG("PRESSURE", "Reading " + String(NUM_SAMPLES) + " samples from sensor");
@@ -1030,7 +1030,7 @@ float readPressureFromSensor()
     // Collect samples
     for(int i = 0; i < NUM_SAMPLES; i++) {
         samples[i] = analogRead(settings.SensorPin);
-        delay(50); // Small delay between readings
+        delay(25); // Small delay between readings
     }
     
     // Sort samples
