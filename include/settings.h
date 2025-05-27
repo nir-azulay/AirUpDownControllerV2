@@ -35,7 +35,8 @@ enum OperationMode {
 enum Commands {
     stop = 1,
     start = 2,
-    setting = 3
+    setting = 3,
+    debug_mode = 7
 };
 
 // WiFi Settings

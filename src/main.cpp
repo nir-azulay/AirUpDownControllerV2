@@ -47,10 +47,13 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
 #pragma endregion WiFi declaration
 
 // Global variables
-double currentPressure = 0;
+float currentPressure = 0;
 double targetPressure = 0;
 OperationMode operationMode = Stop;
 bool isSimulationMode = false;
+bool debugMode = false; // Debug mode flag, default off
+int lastRawADC = 0; // Store last filtered ADC value
+float lastVoltage = 0.0f; // Store last calculated voltage
 
 // Logging
 int currentLogLevel = DEFAULT_LOG_LEVEL;
@@ -363,9 +366,13 @@ String getPressureJSON()
     String JSON = "{";
     JSON += "Pressure: '" + String(currentPressure,1) + "',";
     JSON += "operationMode: '" + String(operationMode) + "'";
+    if (debugMode) {
+        JSON += ", rawADC: '" + String(lastRawADC) + "'";
+        JSON += ", voltage: '" + String(lastVoltage, 3) + "'";
+    }
     JSON += "}";
 
-    Serial.println("getPressureJSON: " + JSON);
+    LOG_DEBUG("PRESSURE", "getPressureJSON: " + JSON);
     return JSON;
 }
 
@@ -842,6 +849,7 @@ void setup()
     Serial.begin(115200);
     LOG_INFO("SYSTEM", "Starting Air Controller v" + String(VERSION_SHORT));
     
+    debugMode = false; // Ensure debug mode is off on startup
     LOG_DEBUG("SYSTEM", "Loading settings file");
     printSettingsFile();
     loadSettingsfile();
@@ -1000,23 +1008,25 @@ float readPressureFromSensor()
 
     if (isSimulationMode) {
         LOG_DEBUG("PRESSURE", "Using simulation mode");
-        // במצב סימולציה, נחשב את השינוי בלחץ בהתאם למצב הפעולה
         float pressureChange = 0;
-        
         if (operationMode == Inflate) {
-            pressureChange = 0.5; // עלייה של 0.5 PSI בכל קריאה
+            pressureChange = 0.5;
             LOG_DEBUG("PRESSURE", "Simulation: Inflating, pressure change: +0.5 PSI");
         } else if (operationMode == Deflate) {
-            pressureChange = -0.3; // ירידה של 0.3 PSI בכל קריאה
+            pressureChange = -0.3;
             LOG_DEBUG("PRESSURE", "Simulation: Deflating, pressure change: -0.3 PSI");
         }
-        
         currentPressure += pressureChange;
-        
-        // הגבלת הערכים לטווח הגיוני
         if (currentPressure < 0) currentPressure = 0;
         if (currentPressure > 50) currentPressure = 50;
-        
+
+        // Simulate rawADC and voltage based on currentPressure
+        float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
+        float onePSI = range / 50.0f;
+        float zeroPSI = settings.SensorValueAt0PSI;
+        lastRawADC = static_cast<int>(zeroPSI + (currentPressure * onePSI));
+        lastVoltage = (float)lastRawADC * (3.3f / 4095.0f); // Assuming 3.3V ref, 12-bit ADC
+
         LOG_INFO("PRESSURE", "Simulated pressure: " + String(currentPressure) + " PSI");
         return currentPressure;
     }
@@ -1064,6 +1074,10 @@ float readPressureFromSensor()
     float pressure_pascal = (sensorVal - zeroPSI) / onePSI;
     if (pressure_pascal < 1) pressure_pascal = 0;
     float pressure_bar = pressure_pascal / 14.7;
+
+    // Store last raw ADC and voltage for debug reporting
+    lastRawADC = sensorVal;
+    lastVoltage = (float)sensorVal * (3.3f / 4095.0f); // Assuming 3.3V ref, 12-bit ADC
 
     LOG_INFO("PRESSURE", "Measured pressure: " + String(pressure_pascal) + " PSI (" + String(pressure_bar) + " BAR)");
     return pressure_pascal;
@@ -1194,6 +1208,7 @@ void SendSettingsToMobile()
     LOG_INFO("BLE", "Settings sent to mobile");
 }
 
+void handleDebugModeCommand(DynamicJsonDocument &doc);
 
 void handleBLEMessage(String Message)
 {
@@ -1241,6 +1256,10 @@ void handleBLEMessage(String Message)
     else if (cmd == 6) {
         // Get settings command
         handleGetSettingsCommand();
+    }
+    else if (cmd == 7) {
+        // Debug mode command
+        handleDebugModeCommand(doc);
     }
     else {
         // Unknown command
@@ -1329,6 +1348,16 @@ void handleLogLevelCommand(DynamicJsonDocument &doc) {
 void handleGetSettingsCommand() {
     LOG_INFO("BLE", "Get settings command received");
     SendSettingsToMobile();
+}
+
+void handleDebugModeCommand(DynamicJsonDocument &doc) {
+    if (!doc.containsKey("enabled")) {
+        LOG_ERROR("BLE", "Missing 'enabled' field for debug_mode command");
+        return;
+    }
+    debugMode = doc["enabled"].as<bool>();
+    LOG_INFO("BLE", "Debug mode set to: " + String(debugMode ? "enabled" : "disabled"));
+    // Optionally, send a response with the current debug mode status
 }
 
 double calculateDelatFactor()
