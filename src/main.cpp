@@ -331,7 +331,7 @@ String getSettingsParams(const String &var)
 {
 
     Serial.println(var);
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.AutoStart + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" + settings.SimulationMode + ";" + VERSION_SHORT};
+    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" + settings.SimulationMode + ";" + VERSION_SHORT};
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -346,7 +346,6 @@ String getSettingsXML()
     XML += "<RelayCompressorPin>" + String(settings.RelayCompressorPin) + "</RelayCompressorPin>";
     XML += "<RelayFreePin>" + String(settings.RelayFreePin) + "</RelayFreePin>";
     XML += "<SensorPin>" + String(settings.SensorPin) + "</SensorPin>";
-    XML += "<AutoStart>" + String(settings.AutoStart) + "</AutoStart>";
     XML += "<MaxSecForStatus>" + String(settings.MaxSecForStatus) + "</MaxSecForStatus>";
     XML += "<SensorValueAt0PSI>" + String(settings.SensorValueAt0PSI) + "</SensorValueAt0PSI>";
     XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI) + "</SensorValueAt50PSI>";
@@ -386,7 +385,6 @@ String getSettingsJSON()
     JSON += "'RelayCompressorPin': '" + String(settings.RelayCompressorPin) + "',";
     JSON += "'RelayFreePin': '" + String(settings.RelayFreePin) + "',";
     JSON += "'SensorPin': '" + String(settings.SensorPin) + "',";
-    JSON += "'AutoStart': '" + String(settings.AutoStart) + "',";
     JSON += "'MaxSecForStatus': '" + String(settings.MaxSecForStatus) + "',";
     JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI) + "',";
     JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI) + "',";
@@ -396,7 +394,8 @@ String getSettingsJSON()
     JSON += "'CurrentPressure': '" + String(currentPressure) + "',";
     JSON += "'Software_VER': '" + String(VERSION_SHORT) + "',";
     JSON += "'IP': '" + currentIP + "',";
-    JSON += "'SimulationMode': '" + String(isSimulationMode) + "'";
+    JSON += "'SimulationMode': '" + String(isSimulationMode) + "',";
+    JSON += "'PressureCalcMethod': '" + String(settings.PressureCalcMethod) + "'";
     JSON += "}";
 
     Serial.println("getSettingsJSON: " + JSON);
@@ -454,11 +453,6 @@ void saveSettings(AsyncWebServerRequest *request)
             settings.RelayFreePin = p->value().toInt();
         else if (paramName == "SensorPin")
             settings.SensorPin = p->value().toInt();
-        else if (paramName == "AutoStart")
-        {
-            String sAutoStart = p->value();
-            settings.AutoStart = sAutoStart.equalsIgnoreCase("true");
-        }
         else if (paramName == "MaxSecForStatus")
             settings.MaxSecForStatus = p->value().toInt();
         else if (paramName == "SensorValueAt0PSI")
@@ -698,7 +692,6 @@ void loadSettingsfile()
     settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
     settings.RelayFreePin = doc["RelayFreePin"].as<int>();
     settings.SensorPin = doc["SensorPin"].as<int>();
-    settings.AutoStart = (bool)doc["AutoStart"];
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
     settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
     settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
@@ -728,7 +721,6 @@ void saveSettingFile()
     doc["RelayCompressorPin"] = settings.RelayCompressorPin;
     doc["RelayFreePin"] = settings.RelayFreePin;
     doc["SensorPin"] = settings.SensorPin;
-    doc["AutoStart"] = settings.AutoStart;
     doc["MaxSecForStatus"] = settings.MaxSecForStatus;
     doc["SensorValueAt0PSI"] = settings.SensorValueAt0PSI;
     doc["SensorValueAt50PSI"] = settings.SensorValueAt50PSI;
@@ -1002,6 +994,35 @@ void loop()
     delay(10);
 }
 
+float calculatePressureMethod1(int sensorVal) {
+    lastRawADC = sensorVal;
+    lastVoltage = (float)sensorVal * (3.3f / 4095.0f); // Assuming 3.3V ref, 12-bit ADC
+    float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
+    float onePSI = range / 50.0f;
+    float zeroPSI = settings.SensorValueAt0PSI;
+    float pressure_pascal = (sensorVal - zeroPSI) / onePSI;
+    if (pressure_pascal < 1) pressure_pascal = 0;
+    return pressure_pascal;
+}
+
+float calculatePressureMethod2(int sensorVal) {
+    lastRawADC = sensorVal;
+    float voltageAtADC = (float)sensorVal * (3.3f / 4095.0f); // ADC voltage
+    lastVoltage = voltageAtADC;
+    float sensorVoltage = voltageAtADC * 2.0f; // Undo voltage divider
+
+    // Use calibration voltages at 0 and 50 PSI (from settings, after divider)
+    float v0 = settings.SensorValueAt0PSI;    // voltage at 0 PSI (after divider)
+    float v50 = settings.SensorValueAt50PSI;  // voltage at 50 PSI (after divider)
+    float v0_sensor = v0 * 2.0f;
+    float v50_sensor = v50 * 2.0f;
+
+    float pressure = (sensorVoltage - v0_sensor) * (50.0f / (v50_sensor - v0_sensor));
+    if (pressure < 0) pressure = 0;
+    if (pressure > 50) pressure = 50;
+    return pressure;
+}
+
 float readPressureFromSensor()
 {
     LOG_DEBUG("PRESSURE", "Reading pressure from sensor");
@@ -1066,18 +1087,14 @@ float readPressureFromSensor()
     int sensorVal = sum / (endIdx - startIdx);
     LOG_DEBUG("PRESSURE", "Filtered sensor value: " + String(sensorVal));
 
-    float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
-    float onePSI = range / 50;
-    LOG_VERBOSE("PRESSURE", "One PSI value: " + String(onePSI));
-    
-    float zeroPSI = settings.SensorValueAt0PSI;
-    float pressure_pascal = (sensorVal - zeroPSI) / onePSI;
+    float pressure_pascal = 0;
+    if (settings.PressureCalcMethod == 2) {
+        pressure_pascal = calculatePressureMethod2(sensorVal);
+    } else {
+        pressure_pascal = calculatePressureMethod1(sensorVal);
+    }
     if (pressure_pascal < 1) pressure_pascal = 0;
     float pressure_bar = pressure_pascal / 14.7;
-
-    // Store last raw ADC and voltage for debug reporting
-    lastRawADC = sensorVal;
-    lastVoltage = (float)sensorVal * (3.3f / 4095.0f); // Assuming 3.3V ref, 12-bit ADC
 
     LOG_INFO("PRESSURE", "Measured pressure: " + String(pressure_pascal) + " PSI (" + String(pressure_bar) + " BAR)");
     return pressure_pascal;
@@ -1292,13 +1309,14 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
     settings.RelayFreePin = doc["RelayFreePin"].as<int>();
     settings.SensorPin = doc["SensorPin"].as<int>();
-    settings.AutoStart = (bool)doc["AutoStart"];
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
     settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
     settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();                    
     settings.BTPinCode = doc["BTPinCode"] | "1234";
+    if (doc.containsKey("PressureCalcMethod"))
+        settings.PressureCalcMethod = doc["PressureCalcMethod"].as<int>();
     
     // Check if SimulationMode is included in the settings update
     if (doc.containsKey("SimulationMode")) {

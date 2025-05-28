@@ -15,11 +15,11 @@ DeviceSettings settings = {
     26,                           // RelayFreePin
     27,                           // SensorPin
     5,                            // MaxSecForStatus
-    false,                        // AutoStart
-    412,                          // SensorValueAt0PSI
-    3182,                         // SensorValueAt50PSI
+    412.0f,                        // SensorValueAt0PSI (float)
+    3182.0f,                       // SensorValueAt50PSI (float)
     "1234",                       // BTPinCode
     2.0,                          // MessureWait
     0.5,                          // Precision
-    false                         // SimulationMode
+    false,                        // SimulationMode
+    1                              // PressureCalcMethod (default to 1)
 }; 

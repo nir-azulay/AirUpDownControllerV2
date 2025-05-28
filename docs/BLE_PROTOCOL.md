@@ -52,11 +52,13 @@
     "CurrentPressure": "number",
     "Software_VER": "string",
     "IP": "string",
-    "SimulationMode": "boolean"
+    "SimulationMode": "boolean",
+    "PressureCalcMethod": "number"
 }
 ```
 - All device settings are included in this notification
 - The `SimulationMode` field indicates whether simulation mode is currently enabled (true) or disabled (false)
+- The `PressureCalcMethod` field selects the pressure calculation method (1: ADC calibration, 2: voltage calibration)
 - This notification is sent when the device first connects to a client or when the client sends a Get Settings command
 
 #### 3. Target Pressure Reached Notification
@@ -109,10 +111,12 @@ Commands are sent as JSON objects through the Command Characteristic:
     "MessureWait": number,
     "Precision": number,
     "BTPinCode": "string",
-    "SimulationMode": boolean
+    "SimulationMode": boolean,
+    "PressureCalcMethod": number
 }
 ```
 - All fields are optional - only include the settings you want to update
+- The `PressureCalcMethod` field selects the pressure calculation method (1: ADC calibration, 2: voltage calibration)
 - After updating settings, the device will restart to apply the changes
 - The `SimulationMode` field can be used to enable (true) or disable (false) simulation mode
 
@@ -220,4 +224,13 @@ def on_notification(data):
     else:
         # Handle settings update
         settings = status
-``` 
+```
+
+## Pressure Calculation Methods
+
+The device supports two methods for calculating pressure from the analog sensor. The method can be selected using the `PressureCalcMethod` setting (1 or 2).
+
+- **1:** ADC calibration (default, uses raw ADC values at 0 and 50 PSI)
+- **2:** Voltage calibration (for sensors with voltage divider, uses voltages at 0 and 50 PSI)
+
+See the main documentation for details on calibration and formulas. 

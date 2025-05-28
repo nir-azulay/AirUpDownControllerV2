@@ -15,13 +15,13 @@ struct DeviceSettings {
     int RelayFreePin;
     int SensorPin;
     int MaxSecForStatus;
-    bool AutoStart;
     float SensorValueAt0PSI;
     float SensorValueAt50PSI;
     String BTPinCode;
     double MessureWait;
     double Precision;
     bool SimulationMode;
+    int PressureCalcMethod; // 1 or 2: select pressure calculation method
 };
 
 // Operation Modes

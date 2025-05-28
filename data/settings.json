@@ -5,7 +5,6 @@
     "RelayCompressorPin": 16,
     "RelayFreePin": 17,
     "SensorPin": 34,
-    "AutoStart": true,
     "MaxSecForStatus": 10,
     "SensorValueAt0PSI": 410,
     "SensorValueAt50PSI": 3400,
