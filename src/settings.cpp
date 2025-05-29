@@ -15,8 +15,8 @@ DeviceSettings settings = {
     26,                           // RelayFreePin
     27,                           // SensorPin
     5,                            // MaxSecForStatus
-    412.0f,                        // SensorValueAt0PSI (float)
-    3182.0f,                       // SensorValueAt50PSI (float)
+    412.000f,                     // SensorValueAt0PSI (float)
+    3182.000f,                    // SensorValueAt50PSI (float)
     "1234",                       // BTPinCode
     2.0,                          // MessureWait
     0.5,                          // Precision

@@ -329,9 +329,8 @@ void deleteFile(fs::FS &fs, const String &path)
 // WebServer server(80);
 String getSettingsParams(const String &var)
 {
-
     Serial.println(var);
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" + settings.SimulationMode + ";" + VERSION_SHORT};
+    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.SimulationMode + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" + settings.PressureCalcMethod + ";" + VERSION_SHORT};
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -347,8 +346,8 @@ String getSettingsXML()
     XML += "<RelayFreePin>" + String(settings.RelayFreePin) + "</RelayFreePin>";
     XML += "<SensorPin>" + String(settings.SensorPin) + "</SensorPin>";
     XML += "<MaxSecForStatus>" + String(settings.MaxSecForStatus) + "</MaxSecForStatus>";
-    XML += "<SensorValueAt0PSI>" + String(settings.SensorValueAt0PSI) + "</SensorValueAt0PSI>";
-    XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI) + "</SensorValueAt50PSI>";
+    XML += "<SensorValueAt0PSI>" + String(settings.SensorValueAt0PSI, 3) + "</SensorValueAt0PSI>";
+    XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI, 3) + "</SensorValueAt50PSI>";
     XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
     XML += "<Precision>" + String(settings.Precision) + "</Precision>";    
     XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
@@ -386,8 +385,8 @@ String getSettingsJSON()
     JSON += "'RelayFreePin': '" + String(settings.RelayFreePin) + "',";
     JSON += "'SensorPin': '" + String(settings.SensorPin) + "',";
     JSON += "'MaxSecForStatus': '" + String(settings.MaxSecForStatus) + "',";
-    JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI) + "',";
-    JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI) + "',";
+    JSON += "'SensorValueAt0PSI': '" + String(settings.SensorValueAt0PSI, 3) + "',";
+    JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI, 3) + "',";
     JSON += "'MessureWait': '" + String(settings.MessureWait) + "',";
     JSON += "'Precision': '" + String(settings.Precision) + "',";    
     JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
@@ -456,11 +455,11 @@ void saveSettings(AsyncWebServerRequest *request)
         else if (paramName == "MaxSecForStatus")
             settings.MaxSecForStatus = p->value().toInt();
         else if (paramName == "SensorValueAt0PSI")
-            settings.SensorValueAt0PSI = p->value().toInt();
+            settings.SensorValueAt0PSI = p->value().toFloat();
         else if (paramName == "SensorValueAt50PSI")
-            settings.SensorValueAt50PSI = p->value().toInt();
+            settings.SensorValueAt50PSI = p->value().toFloat();
         else if (paramName == "BTPinCode")
-            settings.BTPinCode = p->value().toInt();
+            settings.BTPinCode = p->value();
         else if (paramName == "MessureWait")
             settings.MessureWait = p->value().toDouble();
         else if (paramName == "Precision")
@@ -476,6 +475,11 @@ void saveSettings(AsyncWebServerRequest *request)
             if (isSimulationMode) {
                 currentPressure = 0;
             }
+        }
+        else if (paramName == "PressureCalcMethod")
+        {
+            settings.PressureCalcMethod = p->value().toInt();
+            LOG_INFO("WEB", "Pressure calculation method set to: " + String(settings.PressureCalcMethod));
         }
     }
 
@@ -693,8 +697,8 @@ void loadSettingsfile()
     settings.RelayFreePin = doc["RelayFreePin"].as<int>();
     settings.SensorPin = doc["SensorPin"].as<int>();
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
-    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
+    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
+    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
     settings.BTPinCode = doc["BTPinCode"].as<String>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();
@@ -704,6 +708,12 @@ void loadSettingsfile()
         settings.SimulationMode = doc["SimulationMode"].as<bool>();
         isSimulationMode = settings.SimulationMode;
         LOG_INFO("SETTINGS", "Loaded simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
+    }
+    
+    // Load PressureCalcMethod if it exists
+    if (doc.containsKey("PressureCalcMethod")) {
+        settings.PressureCalcMethod = doc["PressureCalcMethod"].as<int>();
+        LOG_INFO("SETTINGS", "Loaded PressureCalcMethod: " + String(settings.PressureCalcMethod));
     }
     
     // Close the file (Curiously, File's destructor doesn't close the file)
@@ -728,6 +738,7 @@ void saveSettingFile()
     doc["Precision"] = settings.Precision;    
     doc["BTPinCode"] = settings.BTPinCode;
     doc["SimulationMode"] = settings.SimulationMode;
+    doc["PressureCalcMethod"] = settings.PressureCalcMethod;
 
     if (SPIFFS.exists("/settings.json.bak"))
         SPIFFS.remove("/settings.json.bak");
@@ -1310,8 +1321,8 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     settings.RelayFreePin = doc["RelayFreePin"].as<int>();
     settings.SensorPin = doc["SensorPin"].as<int>();
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<int>();
-    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<int>();
+    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
+    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();                    
     settings.BTPinCode = doc["BTPinCode"] | "1234";
