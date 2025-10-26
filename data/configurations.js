@@ -18,6 +18,7 @@
       document.getElementById("txt_BTPinCode").value = aValues[10];        
       document.getElementById("txt_MessureWait").value = aValues[11];  
       document.getElementById("txt_Precision").value = aValues[12];
+      document.getElementById("txt_PressureCalcMethod").value = aValues[13];
       document.getElementById("lbl_version").innerHTML = aValues[14];
     }
 
@@ -35,7 +36,8 @@
       SensorValueAt50PSI: document.getElementById("txt_SensorValueAt50PSI").value,
       BTPinCode: document.getElementById("txt_BTPinCode").value,
       MessureWait: document.getElementById("txt_MessureWait").value,
-      Precision: document.getElementById("txt_Precision").value});
+      Precision: document.getElementById("txt_Precision").value,
+      PressureCalcMethod: document.getElementById("txt_PressureCalcMethod").value});
                                       
       var urlwithQS = "/updateSettings?" + params.toString();
       var xhr = new XMLHttpRequest();
