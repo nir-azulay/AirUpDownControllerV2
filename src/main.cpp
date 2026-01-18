@@ -699,6 +699,11 @@ void loadSettingsfile()
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
     settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
     settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
+    
+    // Debug: Print loaded sensor values
+    Serial.println("DEBUG: Loaded SensorValueAt0PSI: " + String(settings.SensorValueAt0PSI, 3));
+    Serial.println("DEBUG: Loaded SensorValueAt50PSI: " + String(settings.SensorValueAt50PSI, 3));
+    
     settings.BTPinCode = doc["BTPinCode"].as<String>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();
@@ -1008,11 +1013,21 @@ void loop()
 float calculatePressureMethod1(int sensorVal) {
     lastRawADC = sensorVal;
     lastVoltage = (float)sensorVal * (3.3f / 4095.0f); // Assuming 3.3V ref, 12-bit ADC
+    
+    Serial.println("DEBUG Method1: Using SensorValueAt0PSI=" + String(settings.SensorValueAt0PSI, 3) + 
+                   ", SensorValueAt50PSI=" + String(settings.SensorValueAt50PSI, 3));
+    
     float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
     float onePSI = range / 50.0f;
     float zeroPSI = settings.SensorValueAt0PSI;
     float pressure_pascal = (sensorVal - zeroPSI) / onePSI;
     if (pressure_pascal < 1) pressure_pascal = 0;
+    
+    Serial.println("DEBUG Method1: sensorVal=" + String(sensorVal) + 
+                   ", range=" + String(range, 3) + 
+                   ", onePSI=" + String(onePSI, 3) + 
+                   ", pressure=" + String(pressure_pascal, 3));
+    
     return pressure_pascal;
 }
 
@@ -1025,12 +1040,21 @@ float calculatePressureMethod2(int sensorVal) {
     // Use calibration voltages at 0 and 50 PSI (from settings, after divider)
     float v0 = settings.SensorValueAt0PSI;    // voltage at 0 PSI (after divider)
     float v50 = settings.SensorValueAt50PSI;  // voltage at 50 PSI (after divider)
+    
+    Serial.println("DEBUG Method2: Using SensorValueAt0PSI=" + String(v0, 3) + 
+                   ", SensorValueAt50PSI=" + String(v50, 3));
+    
     float v0_sensor = v0 * 2.0f;
     float v50_sensor = v50 * 2.0f;
 
     float pressure = (sensorVoltage - v0_sensor) * (50.0f / (v50_sensor - v0_sensor));
     if (pressure < 0) pressure = 0;
     if (pressure > 50) pressure = 50;
+    
+    Serial.println("DEBUG Method2: sensorVal=" + String(sensorVal) + 
+                   ", sensorVoltage=" + String(sensorVoltage, 3) + 
+                   ", pressure=" + String(pressure, 3));
+    
     return pressure;
 }
 
@@ -1323,6 +1347,10 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
     settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
     settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
+    
+    // Debug: Print the received sensor values
+    Serial.println("DEBUG: Received SensorValueAt0PSI: " + String(settings.SensorValueAt0PSI, 3));
+    Serial.println("DEBUG: Received SensorValueAt50PSI: " + String(settings.SensorValueAt50PSI, 3));
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();                    
     settings.BTPinCode = doc["BTPinCode"] | "1234";
