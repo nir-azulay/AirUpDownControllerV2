@@ -36,8 +36,8 @@
       SensorValueAt50PSI: document.getElementById("txt_SensorValueAt50PSI").value,
       BTPinCode: document.getElementById("txt_BTPinCode").value,
       MessureWait: document.getElementById("txt_MessureWait").value,
-      PressureCalcMethod: document.getElementById("txt_PressureCalcMethod").value,
-      Precision: document.getElementById("txt_Precision").value});
+      Precision: document.getElementById("txt_Precision").value,
+      PressureCalcMethod: document.getElementById("txt_PressureCalcMethod").value});
                                       
       var urlwithQS = "/updateSettings?" + params.toString();
       var xhr = new XMLHttpRequest();
