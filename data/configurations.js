@@ -19,7 +19,8 @@
       document.getElementById("txt_MessureWait").value = aValues[11];  
       document.getElementById("txt_Precision").value = aValues[12];
       document.getElementById("txt_PressureCalcMethod").value = aValues[13];
-      document.getElementById("lbl_version").innerHTML = aValues[14];
+      document.getElementById("chk_BLESecurityEnabled").checked = aValues[14] === "1";
+      document.getElementById("lbl_version").innerHTML = aValues[15];
     }
 
     function saveSettings()
@@ -37,7 +38,8 @@
       BTPinCode: document.getElementById("txt_BTPinCode").value,
       MessureWait: document.getElementById("txt_MessureWait").value,
       Precision: document.getElementById("txt_Precision").value,
-      PressureCalcMethod: document.getElementById("txt_PressureCalcMethod").value});
+      PressureCalcMethod: document.getElementById("txt_PressureCalcMethod").value,
+      BLESecurityEnabled: document.getElementById("chk_BLESecurityEnabled").checked ? "true" : "false"});
                                       
       var urlwithQS = "/updateSettings?" + params.toString();
       var xhr = new XMLHttpRequest();

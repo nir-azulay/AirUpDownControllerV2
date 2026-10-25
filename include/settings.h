@@ -22,6 +22,7 @@ struct DeviceSettings {
     double Precision;
     bool SimulationMode;
     int PressureCalcMethod; // 1 or 2: select pressure calculation method
+    bool BLESecurityEnabled; // When true, BLE requires passkey pairing using BTPinCode
 };
 
 // Operation Modes

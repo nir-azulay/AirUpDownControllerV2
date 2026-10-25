@@ -4,6 +4,7 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <BLESecurity.h>
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -330,7 +331,7 @@ void deleteFile(fs::FS &fs, const String &path)
 String getSettingsParams(const String &var)
 {
     Serial.println(var);
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.SimulationMode + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" + settings.PressureCalcMethod + ";" + VERSION_SHORT};
+    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.SimulationMode + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" + settings.PressureCalcMethod + ";" + String(settings.BLESecurityEnabled ? "1" : "0") + ";" + VERSION_SHORT};
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -351,6 +352,7 @@ String getSettingsXML()
     XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
     XML += "<Precision>" + String(settings.Precision) + "</Precision>";    
     XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
+    XML += "<BLESecurityEnabled>" + String(settings.BLESecurityEnabled ? "1" : "0") + "</BLESecurityEnabled>";
     XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
     XML += "<Software_VER>" + String(VERSION_SHORT) + "</Software_VER>";
     XML += "</settings>";
@@ -390,9 +392,10 @@ String getSettingsJSON()
     JSON += "'MessureWait': '" + String(settings.MessureWait) + "',";
     JSON += "'Precision': '" + String(settings.Precision) + "',";    
     JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
+    JSON += "'BLESecurityEnabled': '" + String(settings.BLESecurityEnabled ? "1" : "0") + "',";
     JSON += "'CurrentPressure': '" + String(currentPressure) + "',";
     JSON += "'Software_VER': '" + String(VERSION_SHORT) + "',";
-    JSON += "'IP': '" + currentIP + "',";
+    JSON += "'IP': '" + currentIP + "',";    
     JSON += "'SimulationMode': '" + String(isSimulationMode) + "',";
     JSON += "'PressureCalcMethod': '" + String(settings.PressureCalcMethod) + "'";
     JSON += "}";
@@ -480,6 +483,12 @@ void saveSettings(AsyncWebServerRequest *request)
         {
             settings.PressureCalcMethod = p->value().toInt();
             LOG_INFO("WEB", "Pressure calculation method set to: " + String(settings.PressureCalcMethod));
+        }
+        else if (paramName == "BLESecurityEnabled")
+        {
+            String sBLESecurity = p->value();
+            settings.BLESecurityEnabled = sBLESecurity.equalsIgnoreCase("true") || sBLESecurity == "1";
+            LOG_INFO("WEB", "BLE Security: " + String(settings.BLESecurityEnabled ? "enabled" : "disabled"));
         }
     }
 
@@ -721,6 +730,11 @@ void loadSettingsfile()
         LOG_INFO("SETTINGS", "Loaded PressureCalcMethod: " + String(settings.PressureCalcMethod));
     }
     
+    if (doc.containsKey("BLESecurityEnabled")) {
+        settings.BLESecurityEnabled = doc["BLESecurityEnabled"].as<bool>();
+        LOG_INFO("SETTINGS", "Loaded BLESecurityEnabled: " + String(settings.BLESecurityEnabled ? "enabled" : "disabled"));
+    }
+    
     // Close the file (Curiously, File's destructor doesn't close the file)
     file.close();
 }
@@ -744,6 +758,7 @@ void saveSettingFile()
     doc["BTPinCode"] = settings.BTPinCode;
     doc["SimulationMode"] = settings.SimulationMode;
     doc["PressureCalcMethod"] = settings.PressureCalcMethod;
+    doc["BLESecurityEnabled"] = settings.BLESecurityEnabled;
 
     if (SPIFFS.exists("/settings.json.bak"))
         SPIFFS.remove("/settings.json.bak");
@@ -793,6 +808,23 @@ void setupBlueTooth()
     BLEDevice::setMTU(517);
     LOG_DEBUG("BLE", "BLE Device initialized with name: " + settings.DeviceName);
 
+    if (settings.BLESecurityEnabled) {
+        LOG_INFO("BLE", "BLE Security ENABLED - configuring passkey pairing");
+        BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
+
+        uint32_t passkey = (uint32_t)settings.BTPinCode.toInt();
+        if (passkey > 999999) passkey = 123456;
+        esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(uint32_t));
+        LOG_INFO("BLE", "Static passkey set to: " + String(passkey));
+
+        BLESecurity *pSecurity = new BLESecurity();
+        pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
+        pSecurity->setCapability(ESP_IO_CAP_OUT);
+        pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+    } else {
+        LOG_INFO("BLE", "BLE Security DISABLED - open connections allowed");
+    }
+
     // Create the BLE Server
     pServer = BLEDevice::createServer();
     pServer->setCallbacks(new MyBLEServerCallbacks());
@@ -813,9 +845,15 @@ void setupBlueTooth()
         BLEUUID(CHAR2_UUID),
         BLECharacteristic::PROPERTY_READ   |
         BLECharacteristic::PROPERTY_WRITE  |
-        BLECharacteristic::PROPERTY_WRITE_NR  // Add support for write without response
+        BLECharacteristic::PROPERTY_WRITE_NR
     );
     LOG_DEBUG("BLE", "Command characteristic created with UUID: " + String(CHAR2_UUID));
+
+    if (settings.BLESecurityEnabled) {
+        pCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_WRITE_ENC_MITM);
+        pCharacteristic_2->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_WRITE_ENC_MITM);
+        LOG_DEBUG("BLE", "Characteristic access permissions set to require encrypted connection");
+    }
 
     // Create a BLE Descriptor
     pDescr = new BLEDescriptor((uint16_t)0x2901);
@@ -883,6 +921,9 @@ void setup()
     pinMode(settings.RelayCompressorPin, OUTPUT);
     pinMode(settings.RelayFreePin, OUTPUT);
     pinMode(settings.SensorPin, INPUT);
+    // Relays on this board are active high. Hold both off until a command.
+    digitalWrite(settings.RelayCompressorPin, LOW);
+    digitalWrite(settings.RelayFreePin, LOW);
 
     // clear memory
     targetPressure = 0;
@@ -1197,24 +1238,24 @@ void StopAir()
 {
     LOG_DEBUG("AIR", "Stopping air flow");
     operationMode = Stop;
-    digitalWrite(settings.RelayCompressorPin, HIGH);
-    digitalWrite(settings.RelayFreePin, HIGH);
+    digitalWrite(settings.RelayCompressorPin, LOW);
+    digitalWrite(settings.RelayFreePin, LOW);
 }
 
 void DeflateAir()
 {
     LOG_INFO("AIR", "Deflating air");
     operationMode = Deflate;
-    digitalWrite(settings.RelayCompressorPin, HIGH);
-    digitalWrite(settings.RelayFreePin, LOW);
+    digitalWrite(settings.RelayCompressorPin, LOW);
+    digitalWrite(settings.RelayFreePin, HIGH);
 }
 
 void InflateAir()
 {
     LOG_INFO("AIR", "Inflating air");
     operationMode = Inflate;
-    digitalWrite(settings.RelayCompressorPin, LOW);
-    digitalWrite(settings.RelayFreePin, HIGH);
+    digitalWrite(settings.RelayCompressorPin, HIGH);
+    digitalWrite(settings.RelayFreePin, LOW);
 }
 
 void OperateAir()
@@ -1356,6 +1397,9 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     settings.BTPinCode = doc["BTPinCode"] | "1234";
     if (doc.containsKey("PressureCalcMethod"))
         settings.PressureCalcMethod = doc["PressureCalcMethod"].as<int>();
+    
+    if (doc.containsKey("BLESecurityEnabled"))
+        settings.BLESecurityEnabled = doc["BLESecurityEnabled"].as<bool>();
     
     // Check if SimulationMode is included in the settings update
     if (doc.containsKey("SimulationMode")) {
