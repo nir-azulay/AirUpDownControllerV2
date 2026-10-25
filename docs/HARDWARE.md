@@ -26,16 +26,18 @@ Connect 12 V to the board terminal marked **VCC**. Do not put 12 V on the pin ma
 
 Both relay commons get the fused 12 V. The normally closed contacts are unused.
 
-| Relay | GPIO | Active level | Load |
+| Relay | Fixed GPIO | Active level | Load |
 |---|---|---|---|
-| Relay 1, outer | 16 | High = on | Inflate valve Y1 |
+| Relay 1, outermost | 16 | High = on | Inflate valve Y1 |
 | Relay 2 | 17 | High = on | Deflate valve Y2 |
+
+Those two GPIOs are soldered to the relays. Do not move them. The firmware defaults are already 16 and 17, active high. The screw terminals you wire are COM, NO, and NC.
 
 The other coil wire of each valve returns to supply ground, together with the board GND pin. Only one valve runs at a time. Firmware holds both relay pins low at boot and whenever air is stopped.
 
 Put a 1N4007 across each coil. The band points toward the relay NO side, which is the positive side of the coil.
 
-A board that was flashed before these pin defaults still has its saved settings. On the configuration page set the compressor pin to 16 and the free pin to 17, then save. Flashing alone does not replace values already stored on the device.
+If this board was flashed when the defaults were still 25 and 26, the saved configuration overrides the new defaults. On the configuration page set the compressor pin to 16 and the free pin to 17, then save. That only tells the firmware to drive the pins the relays already use.
 
 ## Pressure sensor
 
@@ -49,7 +51,7 @@ The transducer output is 0.5 V at zero pressure and 4.5 V at the full-scale PSI 
 
 R5 and R6 are 10 kΩ. R5 is in series with the green wire. R6 goes from the divider output to ground. C3 is 100 nF from that same output to ground. The divider presents about 0.25 V to 2.25 V to the pin.
 
-The default sensor pin is GPIO27. That pin is an ADC2 input and cannot be read reliably while Wi-Fi is in use. GPIO34 is an ADC1 input on the header and is a better choice if the reading drops out with Wi-Fi connected. The firmware default is still GPIO27.
+The sensor is not a relay pin. Every GPIO is labeled on the back of the board. The firmware reads the divided green wire on GPIO27. That pin is ADC2, so the reading can be wrong while Wi-Fi is connected. If that happens, move only the sensor signal to GPIO34 on that same back header and set the sensor pin to 34. Leave the relays on 16 and 17.
 
 ## Calibration
 
@@ -62,22 +64,7 @@ The shipped numbers, 412 counts at 0 PSI and 3182 counts at 50 PSI, belong to an
 
 ## Parts
 
-| Qty | Part | Link |
-|---|---|---|
-| 1 | ESP32 Relay X2 | [AliExpress](https://www.aliexpress.com/item/1005007334208641.html) |
-| 2 | 12 V normally closed solenoid, 6.5 W | [AliExpress](https://www.aliexpress.com/item/1005006755761577.html) |
-| 1 | 0.5–4.5 V pressure sensor, 1/8 NPT | [AliExpress](https://www.aliexpress.com/item/4001179110023.html) |
-| 1 | 8 mm push-fit manifold, 6 ways or more | [AliExpress](https://www.aliexpress.com/item/1005001462976015.html) |
-| 1 | 12 V supply, 2 A or more | |
-| 1 | 2 A inline fuse | |
-| 2 | 1N4007 | |
-| 2 | 10 kΩ resistor | |
-| 1 | 100 nF ceramic capacitor | |
-| 1 | 1/8 NPT female to 8 mm push-fit, for the sensor | |
-| 3 | Valve NPT to 8 mm push-fit | Match 1/8 or 1/4 NPT to the valves received |
-| | 8 mm PU tube | Tank, manifold, and four tires |
-
-The deflate outlet can vent open to air. The tank and the tires are already on the vehicle.
+What to buy, with links, is in [PARTS.md](PARTS.md).
 
 ## BLE
 
