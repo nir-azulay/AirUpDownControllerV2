@@ -1,0 +1,26 @@
+docs/PARTS.md
+  s_a78bf3d6b9a4f7::t_16d7cf0838330a 1-40
+docs/HARDWARE.md
+  s_a78bf3d6b9a4f7::t_5a4e199c43f677 54
+  s_a78bf3d6b9a4f7::t_d50f0b2bd296a9 29,31,34-35,40
+  s_a78bf3d6b9a4f7::t_c10bdc9cd195ab 67
+README.md
+  s_a78bf3d6b9a4f7::t_1f73cd592a5703 10
+  s_a78bf3d6b9a4f7::t_164c8e741f779f 5-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "5b10c4f8d15dbfb310f5ea4b0c053542975d5d7e",
+  "prompts": {},
+  "sessions": {
+    "s_a78bf3d6b9a4f7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "71cf080a-c3c3-429c-bb57-cf6aae336486",
+        "model": "grok-4.7"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
