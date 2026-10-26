@@ -23,6 +23,10 @@ struct DeviceSettings {
     bool SimulationMode;
     int PressureCalcMethod; // 1 or 2: select pressure calculation method
     bool BLESecurityEnabled; // When true, BLE requires passkey pairing using BTPinCode
+    float MaxPressurePSI; // Configuration page only. Not a BLE field.
+    int MaxValveOpenSec; // Configuration page only. Not a BLE field.
+    float SensorFullScalePSI; // PSI stamped on the sensor. 0 keeps both valves closed. Not a BLE field.
+    String AccessPointPassword; // Used when home Wi-Fi does not connect. Not a BLE field.
 };
 
 // Operation Modes
@@ -39,9 +43,6 @@ enum Commands {
     setting = 3,
     debug_mode = 7
 };
-
-// WiFi Settings
-extern const char* softAPpassword;
 
 // Global settings instance
 extern DeviceSettings settings;

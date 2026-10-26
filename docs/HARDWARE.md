@@ -51,16 +51,38 @@ The transducer output is 0.5 V at zero pressure and 4.5 V at the full-scale PSI 
 
 R5 and R6 are 10 kΩ. R5 is in series with the green wire. R6 goes from the divider output to ground. C3 is 100 nF from that same output to ground. The divider presents about 0.25 V to 2.25 V to the pin.
 
-The sensor is not a relay pin. Every GPIO is labeled on the back of the board. The firmware reads the divided green wire on GPIO27. That pin is ADC2, so the reading can be wrong while Wi-Fi is connected. If that happens, move only the sensor signal to GPIO34 on that same back header and set the sensor pin to 34. Leave the relays on 16 and 17.
+The sensor is not a relay pin. Every GPIO is labeled on the back of the board. Connect the divided green wire to **GPIO34**. That pin is ADC1, so Wi-Fi does not block the reading. Leave the relays on 16 and 17.
+
+A board that already saved its settings may still have sensor pin 27. On the configuration page set the sensor GPIO to 34, then save. GPIO27 is ADC2 and the reading can be wrong while Wi-Fi is connected.
 
 ## Calibration
 
-The configuration page has two calculation methods.
+Enter the PSI stamped on the sensor as **Sensor full scale** on the configuration page. Both valves stay closed until that value is greater than zero.
 
-- Method 1, the default, maps raw ADC counts between `SensorValueAt0PSI` and `SensorValueAt50PSI` onto 0–50 PSI.
-- Method 2 treats those two settings as voltages after the divider, multiplies the ADC voltage by 2 to undo the divider, and clamps the result to 0–50 PSI.
+The phone apps still use the existing names `SensorValueAt0PSI` and `SensorValueAt50PSI`. Those names are unchanged. The second value is the sensor reading at full scale, and the PSI span is the full-scale field above.
 
-The shipped numbers, 412 counts at 0 PSI and 3182 counts at 50 PSI, belong to an older sensor. They do not match this 0.5–4.5 V transducer, and the full-scale PSI is whatever is stamped on the part. Set both calibration points from a known pressure after the sensor is installed. Zero pressure is about 0.5 V on the green wire, not 0 V.
+- Method 1, the default, maps raw ADC counts between those two settings across the full-scale PSI.
+- Method 2 treats those two settings as voltages after the divider and multiplies the ADC voltage by 2. For this sensor the voltages are 0.250 at zero and 2.250 at full scale.
+
+A new device starts at 310.227 counts and 2792.045 counts. That is 0.25 V and 2.25 V on the divider, which is 0.5 V and 4.5 V on the green wire. A device that already saved 412 and 3182 keeps those saved numbers until they are changed on the configuration page. Zero pressure is about 0.5 V on the green wire, not 0 V.
+
+## Valve limits
+
+These limits are on the configuration page. They are not BLE fields, so the phone apps do not send or receive them.
+
+| Setting | Default | What it does |
+|---|---|---|
+| Sensor full scale (PSI) | 0 | The stamp on the sensor. Valves stay closed while this is 0. |
+| Max pressure (PSI) | 50 | A higher target is rejected. A reading above this closes both valves. |
+| Max valve open (sec) | 120 | Closes both valves if a start command runs longer than this. |
+
+A target must be greater than 0 and no higher than the lower of the maximum pressure and the sensor full scale. If five readings in a row disagree by more than 1 PSI, or the sensor signal is missing, both valves close. The phone still receives the same pressure and operation-mode message. Stop is operation mode 1.
+
+## Setup access
+
+If the home Wi-Fi does not connect, the board opens an access point named with the device name. The factory access-point password is `AirUpDown`. Change it on the configuration page. It must be at least 8 characters. The serial log does not print it.
+
+The configuration page leaves the Wi-Fi password blank. Leave it blank to keep the saved password, or type a new one. The BLE settings message still includes `wifipassword`, because the phone apps expect that field.
 
 ## Parts
 
@@ -68,4 +90,4 @@ What to buy, with links, is in [PARTS.md](PARTS.md).
 
 ## BLE
 
-BLE security is off by default. When it is turned on, pairing uses the passkey stored in `BTPinCode` (default `1234`). The message format is in [BLE_PROTOCOL.md](BLE_PROTOCOL.md).
+BLE security is off by default. When it is turned on, pairing uses the passkey stored in `BTPinCode` (default `1234`). The message format is in [BLE_PROTOCOL.md](BLE_PROTOCOL.md). The messages use the same fields the phone apps already know. Maximum pressure, valve time, sensor full scale, and the access-point password are not part of those messages.

@@ -139,7 +139,7 @@
 <pin name="COM2" x="27.94" y="-7.62" visible="pin" length="short" direction="pas" rot="R180"/>
 <pin name="NO2" x="27.94" y="-15.24" visible="pin" length="short" direction="pas" rot="R180"/>
 <pin name="NC2" x="27.94" y="-22.86" visible="pin" length="short" direction="nc" rot="R180"/>
-<pin name="IO27" x="10.16" y="-33.02" visible="pin" length="short" direction="in" rot="R270"/>
+<pin name="IO34" x="10.16" y="-33.02" visible="pin" length="short" direction="in" rot="R270"/>
 <text x="0" y="26" size="1.778" layer="95" align="bottom-center">&gt;NAME</text>
 <text x="0" y="21" size="1.778" layer="96" align="bottom-center">&gt;VALUE</text>
 <wire x1="-22.86" y1="-27.94" x2="22.86" y2="-27.94" width="0.254" layer="94"/>
@@ -165,7 +165,7 @@
 <text x="4" y="-8.9" size="1.27" layer="94">COM2 GPIO17</text>
 <text x="4" y="-16.5" size="1.27" layer="94">NO2 deflate</text>
 <text x="4" y="-24.1" size="1.27" layer="94">NC2</text>
-<text x="11" y="-31" size="1.27" layer="94">IO27</text>
+<text x="11" y="-31" size="1.27" layer="94">IO34</text>
 </symbol>
 
 
@@ -326,7 +326,7 @@
 <text x="15" y="175" size="3.2" layer="97">AirUpDown controller</text>
 <text x="15" y="168" size="1.6" layer="97">ESP32 Relay X2. 12V on VCC only. Relay 1 GPIO16 inflate, relay 2 GPIO17 deflate, both active high.</text>
 <text x="15" y="163" size="1.6" layer="97">Each valve is 12V 6.5W across NO and GND. 1N4007 across the coil, band toward NO. NC unused.</text>
-<text x="15" y="20" size="1.6" layer="97">U3 red +5V, black GND, green signal 0.5-4.5V. 10k/10k divider into GPIO27. Full scale is the PSI stamped on the sensor.</text>
+<text x="15" y="20" size="1.6" layer="97">U3 red +5V, black GND, green signal 0.5-4.5V. 10k/10k divider into GPIO34. Full scale is the PSI stamped on the sensor.</text>
 <text x="12" y="157" size="1.8" layer="97">12V supply</text>
 <text x="33" y="156" size="1.8" layer="97">F1 Fuse 2A</text>
 <text x="74" y="151" size="2" layer="97">U1 ESP32 Relay X2</text>
@@ -507,7 +507,7 @@
 <wire x1="105.16" y1="70" x2="105.16" y2="91.98" width="0.1524" layer="91"/>
 <pinref part="R5" gate="G$1" pin="2"/>
 <pinref part="C3" gate="G$1" pin="1"/>
-<pinref part="U1" gate="G$1" pin="IO27"/>
+<pinref part="U1" gate="G$1" pin="IO34"/>
 <label x="90" y="71.4" size="1.27" layer="95"/>
 </segment>
 </net>

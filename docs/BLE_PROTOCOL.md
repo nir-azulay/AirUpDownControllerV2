@@ -92,6 +92,7 @@ Commands are sent as JSON objects through the Command Characteristic:
 }
 ```
 - `targetPressure`: Desired pressure value in PSI
+- The device rejects a target that is not above 0, or that is above the maximum pressure or the sensor full scale. Those two limits are set on the configuration page and are not fields in this message. On rejection the device stays in Stop (operation mode 1) and reports pressure with the existing status message.
 
 #### 3. Update Settings Command
 ```json
@@ -129,7 +130,7 @@ Commands are sent as JSON objects through the Command Characteristic:
 - במצב סימולציה:
   - הלחץ יעלה ב-0.5 PSI בכל קריאה בזמן ניפוח
   - הלחץ ירד ב-0.3 PSI בכל קריאה בזמן שחרור אוויר
-  - הערכים מוגבלים לטווח של 0-50 PSI
+  - Pressure stays between 0 and the maximum pressure from the configuration page. The default maximum is 50 PSI.
   - קריאות מהחיישן האמיתי יתעלמו
   - הלחץ ההתחלתי יאופס ל-0 בעת הפעלת הסימולציה
 - **Important**: The simulation mode setting is now persistent and will be saved to the device's memory. The setting will be retained even after device restart or power cycle.
@@ -187,9 +188,10 @@ Commands are sent as JSON objects through the Command Characteristic:
 ## Error Handling
 
 - If a command is malformed or cannot be parsed, it will be ignored
-- If target pressure is unreachable, the device will continue trying to reach it
+- If the target is not reached before the valve-open limit (configuration page, default 120 seconds), the device closes both valves and returns to Stop
+- If the pressure reading is missing or does not settle within five attempts, the device closes both valves and returns to Stop
 - Connection loss will trigger automatic disconnection handling and advertising restart
-- If WiFi connection fails, device will create an access point with the configured device name
+- If WiFi connection fails, the device creates an access point with the configured device name. The access-point password is set on the configuration page and is not a BLE field. The factory password is `AirUpDown`.
 
 ## Example Integration Code (Pseudocode)
 
@@ -228,7 +230,9 @@ def on_notification(data):
 
 The device supports two methods for calculating pressure from the analog sensor. The method can be selected using the `PressureCalcMethod` setting (1 or 2).
 
-- **1:** ADC calibration (default, uses raw ADC values at 0 and 50 PSI)
-- **2:** Voltage calibration (for sensors with voltage divider, uses voltages at 0 and 50 PSI)
+- **1:** ADC calibration (default). `SensorValueAt0PSI` and `SensorValueAt50PSI` are raw ADC counts at zero and at the sensor's full scale. The PSI span is the full-scale value on the configuration page.
+- **2:** Voltage calibration. The same two fields are voltages after the divider, at zero and at full scale.
 
-See the main documentation for details on calibration and formulas. 
+The field names above are unchanged so existing phone apps keep working. Maximum pressure, maximum valve-open time, sensor full-scale PSI, and the access-point password are stored on the device and edited on the configuration page. Do not add them to these BLE messages.
+
+See [HARDWARE.md](HARDWARE.md) for the wiring and the calibration values. 

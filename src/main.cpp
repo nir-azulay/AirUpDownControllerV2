@@ -52,6 +52,9 @@ float currentPressure = 0;
 double targetPressure = 0;
 OperationMode operationMode = Stop;
 bool isSimulationMode = false;
+bool pressureValid = true;
+bool valveSessionActive = false;
+unsigned long valveSessionStartMs = 0;
 bool debugMode = false; // Debug mode flag, default off
 int lastRawADC = 0; // Store last filtered ADC value
 float lastVoltage = 0.0f; // Store last calculated voltage
@@ -331,7 +334,7 @@ void deleteFile(fs::FS &fs, const String &path)
 String getSettingsParams(const String &var)
 {
     Serial.println(var);
-    String status = {settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + settings.RelayCompressorPin + ";" + settings.RelayFreePin + ";" + settings.SensorPin + ";" + settings.SimulationMode + ";" + settings.MaxSecForStatus + ";" + settings.SensorValueAt0PSI + ";" + settings.SensorValueAt50PSI + ";" + settings.BTPinCode + ";" + settings.MessureWait + ";" + settings.Precision + ";" + settings.PressureCalcMethod + ";" + String(settings.BLESecurityEnabled ? "1" : "0") + ";" + VERSION_SHORT};
+    String status = settings.DeviceName + ";" + settings.wifissid + ";;" + String(settings.RelayCompressorPin) + ";" + String(settings.RelayFreePin) + ";" + String(settings.SensorPin) + ";" + String(settings.SimulationMode) + ";" + String(settings.MaxSecForStatus) + ";" + String(settings.SensorValueAt0PSI, 3) + ";" + String(settings.SensorValueAt50PSI, 3) + ";" + settings.BTPinCode + ";" + String(settings.MessureWait) + ";" + String(settings.Precision) + ";" + String(settings.PressureCalcMethod) + ";" + String(settings.BLESecurityEnabled ? "1" : "0") + ";" + VERSION_SHORT + ";" + String(settings.MaxPressurePSI, 1) + ";" + String(settings.MaxValveOpenSec) + ";" + String(settings.SensorFullScalePSI, 1) + ";" + settings.AccessPointPassword;
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -400,7 +403,6 @@ String getSettingsJSON()
     JSON += "'PressureCalcMethod': '" + String(settings.PressureCalcMethod) + "'";
     JSON += "}";
 
-    Serial.println("getSettingsJSON: " + JSON);
     return JSON;
 }
 
@@ -448,7 +450,10 @@ void saveSettings(AsyncWebServerRequest *request)
         else if (paramName == "wifissid")
             settings.wifissid = p->value();
         else if (paramName == "wifipassword")
-            settings.wifipassword = p->value();
+        {
+            if (p->value().length() > 0)
+                settings.wifipassword = p->value();
+        }
         else if (paramName == "RelayCompressorPin")
             settings.RelayCompressorPin = p->value().toInt();
         else if (paramName == "RelayFreePin")
@@ -489,6 +494,30 @@ void saveSettings(AsyncWebServerRequest *request)
             String sBLESecurity = p->value();
             settings.BLESecurityEnabled = sBLESecurity.equalsIgnoreCase("true") || sBLESecurity == "1";
             LOG_INFO("WEB", "BLE Security: " + String(settings.BLESecurityEnabled ? "enabled" : "disabled"));
+        }
+        else if (paramName == "MaxPressurePSI")
+        {
+            float limit = p->value().toFloat();
+            if (limit > 0)
+                settings.MaxPressurePSI = limit;
+        }
+        else if (paramName == "MaxValveOpenSec")
+        {
+            int seconds = p->value().toInt();
+            if (seconds >= 10)
+                settings.MaxValveOpenSec = seconds;
+        }
+        else if (paramName == "SensorFullScalePSI")
+        {
+            float fullScale = p->value().toFloat();
+            if (fullScale >= 0)
+                settings.SensorFullScalePSI = fullScale;
+        }
+        else if (paramName == "AccessPointPassword")
+        {
+            String apPassword = p->value();
+            if (apPassword.length() >= 8 && apPassword.indexOf(';') < 0)
+                settings.AccessPointPassword = apPassword;
         }
     }
 
@@ -650,12 +679,12 @@ void setupWiFi()
     else
     {
 
-        WiFi.softAP(settings.DeviceName.c_str(), softAPpassword);
+        WiFi.softAP(settings.DeviceName.c_str(), settings.AccessPointPassword.c_str());
         IPAddress IP = WiFi.softAPIP();
         Serial.println("");
         Serial.println("WiFi not connected!");
         Serial.println("Setup Access point named: " + settings.DeviceName);
-        Serial.println("password for access point: " + String(softAPpassword));
+        Serial.println("Use the access-point password saved on the configuration page.");
         Serial.println("browse to the following IP: " + IP.toString());
         currentIP = IP.toString();
     }
@@ -691,12 +720,15 @@ void loadSettingsfile()
         return;
     }
 
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<2048> doc;
 
     // Deserialize the JSON document
     DeserializationError error = deserializeJson(doc, file);
-    if (error)
-        Serial.println(F("Failed to read file, using default settingsuration"));
+    if (error) {
+        Serial.println(F("Failed to read file, using default settings"));
+        file.close();
+        return;
+    }
 
     // Copy values from the JsonDocument to the Config
     settings.DeviceName = doc["DeviceName"].as<String>();
@@ -734,6 +766,20 @@ void loadSettingsfile()
         settings.BLESecurityEnabled = doc["BLESecurityEnabled"].as<bool>();
         LOG_INFO("SETTINGS", "Loaded BLESecurityEnabled: " + String(settings.BLESecurityEnabled ? "enabled" : "disabled"));
     }
+    if (doc.containsKey("MaxPressurePSI") && doc["MaxPressurePSI"].as<float>() > 0)
+        settings.MaxPressurePSI = doc["MaxPressurePSI"].as<float>();
+    if (doc.containsKey("MaxValveOpenSec") && doc["MaxValveOpenSec"].as<int>() >= 10)
+        settings.MaxValveOpenSec = doc["MaxValveOpenSec"].as<int>();
+    if (doc.containsKey("SensorFullScalePSI"))
+        settings.SensorFullScalePSI = doc["SensorFullScalePSI"].as<float>();
+    if (doc.containsKey("AccessPointPassword")) {
+        String apPassword = doc["AccessPointPassword"].as<String>();
+        if (apPassword.length() >= 8)
+            settings.AccessPointPassword = apPassword;
+    }
+    if (settings.SensorPin == 27) {
+        LOG_WARNING("SETTINGS", "Sensor pin is GPIO27 (ADC2). Connect the sensor to GPIO34 and set the sensor pin to 34.");
+    }
     
     // Close the file (Curiously, File's destructor doesn't close the file)
     file.close();
@@ -742,7 +788,7 @@ void loadSettingsfile()
 void saveSettingFile()
 {
     Serial.println("saveSettingFile");
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(2048);
 
     doc["DeviceName"] = settings.DeviceName;
     doc["wifissid"] = settings.wifissid;
@@ -759,6 +805,10 @@ void saveSettingFile()
     doc["SimulationMode"] = settings.SimulationMode;
     doc["PressureCalcMethod"] = settings.PressureCalcMethod;
     doc["BLESecurityEnabled"] = settings.BLESecurityEnabled;
+    doc["MaxPressurePSI"] = settings.MaxPressurePSI;
+    doc["MaxValveOpenSec"] = settings.MaxValveOpenSec;
+    doc["SensorFullScalePSI"] = settings.SensorFullScalePSI;
+    doc["AccessPointPassword"] = settings.AccessPointPassword;
 
     if (SPIFFS.exists("/settings.json.bak"))
         SPIFFS.remove("/settings.json.bak");
@@ -791,11 +841,7 @@ void printSettingsFile()
         return;
     }
 
-    Serial.println("File Content:");
-    while (file.available())
-    {
-        Serial.write(file.read());
-    }
+    Serial.println("Settings file is present. Passwords are not printed.");
     file.close();
 }
 
@@ -1051,52 +1097,55 @@ void loop()
     delay(10);
 }
 
+float applyPressureLimits(float pressure) {
+    if (pressure < 0)
+        pressure = 0;
+    if (pressure > settings.MaxPressurePSI)
+        pressureValid = false;
+    else
+        pressureValid = true;
+    return pressure;
+}
+
 float calculatePressureMethod1(int sensorVal) {
     lastRawADC = sensorVal;
-    lastVoltage = (float)sensorVal * (3.3f / 4095.0f); // Assuming 3.3V ref, 12-bit ADC
-    
-    Serial.println("DEBUG Method1: Using SensorValueAt0PSI=" + String(settings.SensorValueAt0PSI, 3) + 
-                   ", SensorValueAt50PSI=" + String(settings.SensorValueAt50PSI, 3));
-    
+    lastVoltage = (float)sensorVal * (3.3f / 4095.0f);
+
+    float spanPsi = settings.SensorFullScalePSI;
     float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
-    float onePSI = range / 50.0f;
-    float zeroPSI = settings.SensorValueAt0PSI;
-    float pressure_pascal = (sensorVal - zeroPSI) / onePSI;
-    if (pressure_pascal < 1) pressure_pascal = 0;
-    
-    Serial.println("DEBUG Method1: sensorVal=" + String(sensorVal) + 
-                   ", range=" + String(range, 3) + 
-                   ", onePSI=" + String(onePSI, 3) + 
-                   ", pressure=" + String(pressure_pascal, 3));
-    
-    return pressure_pascal;
+    if (spanPsi <= 0.0f || range == 0.0f) {
+        pressureValid = false;
+        return 0;
+    }
+    if (sensorVal + 150 < settings.SensorValueAt0PSI) {
+        pressureValid = false;
+        return 0;
+    }
+
+    float pressure = (sensorVal - settings.SensorValueAt0PSI) / (range / spanPsi);
+    return applyPressureLimits(pressure);
 }
 
 float calculatePressureMethod2(int sensorVal) {
     lastRawADC = sensorVal;
-    float voltageAtADC = (float)sensorVal * (3.3f / 4095.0f); // ADC voltage
+    float voltageAtADC = (float)sensorVal * (3.3f / 4095.0f);
     lastVoltage = voltageAtADC;
-    float sensorVoltage = voltageAtADC * 2.0f; // Undo voltage divider
+    float sensorVoltage = voltageAtADC * 2.0f;
 
-    // Use calibration voltages at 0 and 50 PSI (from settings, after divider)
-    float v0 = settings.SensorValueAt0PSI;    // voltage at 0 PSI (after divider)
-    float v50 = settings.SensorValueAt50PSI;  // voltage at 50 PSI (after divider)
-    
-    Serial.println("DEBUG Method2: Using SensorValueAt0PSI=" + String(v0, 3) + 
-                   ", SensorValueAt50PSI=" + String(v50, 3));
-    
-    float v0_sensor = v0 * 2.0f;
-    float v50_sensor = v50 * 2.0f;
+    float spanPsi = settings.SensorFullScalePSI;
+    float v0 = settings.SensorValueAt0PSI;
+    float vFull = settings.SensorValueAt50PSI;
+    if (spanPsi <= 0.0f || vFull == v0) {
+        pressureValid = false;
+        return 0;
+    }
+    if (voltageAtADC < 0.05f) {
+        pressureValid = false;
+        return 0;
+    }
 
-    float pressure = (sensorVoltage - v0_sensor) * (50.0f / (v50_sensor - v0_sensor));
-    if (pressure < 0) pressure = 0;
-    if (pressure > 50) pressure = 50;
-    
-    Serial.println("DEBUG Method2: sensorVal=" + String(sensorVal) + 
-                   ", sensorVoltage=" + String(sensorVoltage, 3) + 
-                   ", pressure=" + String(pressure, 3));
-    
-    return pressure;
+    float pressure = (sensorVoltage - (v0 * 2.0f)) * (spanPsi / ((vFull - v0) * 2.0f));
+    return applyPressureLimits(pressure);
 }
 
 float readPressureFromSensor()
@@ -1115,7 +1164,8 @@ float readPressureFromSensor()
         }
         currentPressure += pressureChange;
         if (currentPressure < 0) currentPressure = 0;
-        if (currentPressure > 50) currentPressure = 50;
+        if (currentPressure > settings.MaxPressurePSI) currentPressure = settings.MaxPressurePSI;
+        pressureValid = true;
 
         // Simulate rawADC and voltage based on currentPressure
         float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
@@ -1169,59 +1219,31 @@ float readPressureFromSensor()
     } else {
         pressure_pascal = calculatePressureMethod1(sensorVal);
     }
-    if (pressure_pascal < 1) pressure_pascal = 0;
     float pressure_bar = pressure_pascal / 14.7;
 
     LOG_INFO("PRESSURE", "Measured pressure: " + String(pressure_pascal) + " PSI (" + String(pressure_bar) + " BAR)");
     return pressure_pascal;
 }
 
-void readCurrentPressure()
+void waitForPressureToSettle()
 {
-    LOG_DEBUG("PRESSURE", "Starting pressure measurement");
-
-    // If in simulation mode, just read the pressure without stopping air flow
-    if (isSimulationMode) {
-        LOG_DEBUG("PRESSURE", "Simulation mode - reading pressure without stopping air flow");
-        currentPressure = readPressureFromSensor();
-        LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
-        SendStatusToMobile();
-        return;
-    }
-
-    // For real sensor readings, we need to close valve first
-    OperationMode backupCurrentValveState = operationMode;
-    LOG_DEBUG("PRESSURE", "Saving current operation mode: " + String(backupCurrentValveState));
-
-    StopAir();
-    // wait for stabilze pressure
-    LOG_DEBUG("PRESSURE", "Waiting for pressure to stabilize");
-    
-    // שימוש בלולאה עם yield במקום delay כדי לאפשר לשרת האינטרנט לעבד בקשות
     unsigned long startTime = millis();
-    while (millis() - startTime < 1000 * settings.MessureWait) {
-        yield(); // תן לשרת האינטרנט זמן לעבד בקשות
-        delay(10); // השהייה קצרה כדי לא להעמיס על המעבד
+    unsigned long waitMs = (unsigned long)(1000.0 * settings.MessureWait);
+    while (millis() - startTime < waitMs) {
+        yield();
+        delay(10);
     }
-    
-    currentPressure = readPressureFromSensor();
+}
 
-    while (abs(readPressureFromSensor() - currentPressure) > 1)
-    {
-        LOG_DEBUG("PRESSURE", "Pressure not stable, waiting more");
-        
-        // שימוש בלולאה עם yield במקום delay כדי לאפשר לשרת האינטרנט לעבד בקשות
-        startTime = millis();
-        while (millis() - startTime < 1000 * settings.MessureWait) {
-            yield(); // תן לשרת האינטרנט זמן לעבד בקשות
-            delay(10); // השהייה קצרה כדי לא להעמיס על המעבד
-        }
-        
-        currentPressure = readPressureFromSensor();
-    }
+void refuseAir(const char *reason) {
+    LOG_ERROR("AIR", String("Stopped: ") + reason);
+    valveSessionActive = false;
+    StopAir();
+    SendStatusToMobile();
+}
 
-    // restore opration mode
-    LOG_DEBUG("PRESSURE", "Restoring operation mode: " + String(backupCurrentValveState));
+void restoreValveState(OperationMode backupCurrentValveState)
+{
     operationMode = backupCurrentValveState;
     if (operationMode == Inflate)
         InflateAir();
@@ -1229,7 +1251,54 @@ void readCurrentPressure()
         DeflateAir();
     else
         StopAir();
+}
 
+void readCurrentPressure()
+{
+    LOG_DEBUG("PRESSURE", "Starting pressure measurement");
+
+    if (isSimulationMode) {
+        currentPressure = readPressureFromSensor();
+        LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
+        SendStatusToMobile();
+        return;
+    }
+
+    OperationMode backupCurrentValveState = operationMode;
+    StopAir();
+    waitForPressureToSettle();
+
+    const int maxStableReads = 5;
+    currentPressure = readPressureFromSensor();
+    if (!pressureValid) {
+        refuseAir("pressure reading is not usable");
+        return;
+    }
+
+    bool stable = false;
+    for (int attempt = 0; attempt < maxStableReads; attempt++) {
+        waitForPressureToSettle();
+        float nextPressure = readPressureFromSensor();
+        if (!pressureValid) {
+            if (nextPressure > settings.MaxPressurePSI)
+                currentPressure = nextPressure;
+            refuseAir("pressure reading is not usable");
+            return;
+        }
+        if (abs(nextPressure - currentPressure) <= 1.0f) {
+            currentPressure = nextPressure;
+            stable = true;
+            break;
+        }
+        currentPressure = nextPressure;
+    }
+
+    if (!stable) {
+        refuseAir("pressure reading is unstable");
+        return;
+    }
+
+    restoreValveState(backupCurrentValveState);
     LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
     SendStatusToMobile();
 }
@@ -1262,8 +1331,23 @@ void OperateAir()
 {
     LOG_DEBUG("AIR", "Operating air system - Target: " + String(targetPressure) + " PSI, Current: " + String(currentPressure) + " PSI");
 
-    // Check if we're within the precision range of the target pressure
-    bool targetReached = abs(currentPressure - targetPressure) <= settings.Precision;
+    if (!isSimulationMode && settings.SensorFullScalePSI <= 0) {
+        refuseAir("sensor full scale is not set");
+        return;
+    }
+    if (!isSimulationMode && !pressureValid) {
+        refuseAir("pressure reading is not usable");
+        return;
+    }
+    if (currentPressure > settings.MaxPressurePSI) {
+        refuseAir("pressure is above the maximum");
+        return;
+    }
+    if (valveSessionActive && settings.MaxValveOpenSec > 0 &&
+        millis() - valveSessionStartMs >= (unsigned long)settings.MaxValveOpenSec * 1000UL) {
+        refuseAir("valve open time exceeded");
+        return;
+    }
 
     if ((targetPressure - currentPressure) > settings.Precision) {
         LOG_INFO("AIR", "Pressure too low, inflating");
@@ -1271,15 +1355,11 @@ void OperateAir()
     } else if ((currentPressure - targetPressure) > settings.Precision) {
         LOG_INFO("AIR", "Pressure too high, deflating");
         DeflateAir();
-    } else {
-        // We've reached the target pressure
-        if (operationMode != Stop) {
-            LOG_INFO("AIR", "Pressure at target, stopping");
-            StopAir();
-            
-            // Send notification that target pressure has been reached
-            SendTargetReachedNotification();
-        }
+    } else if (operationMode != Stop) {
+        LOG_INFO("AIR", "Pressure at target, stopping");
+        valveSessionActive = false;
+        StopAir();
+        SendTargetReachedNotification();
     }
 }
 
@@ -1364,6 +1444,7 @@ void handleBLEMessage(String Message)
 
 void handleStopCommand() {
     LOG_INFO("BLE", "Stop command received");
+    valveSessionActive = false;
     StopAir();
 }
 
@@ -1372,7 +1453,22 @@ void handleStartCommand(DynamicJsonDocument &doc) {
         LOG_ERROR("BLE", "Missing 'targetPressure' field for start command");
         return;
     }
-    targetPressure = doc["targetPressure"].as<int>();
+    float requested = doc["targetPressure"].as<float>();
+    if (!isSimulationMode && settings.SensorFullScalePSI <= 0) {
+        refuseAir("sensor full scale is not set");
+        return;
+    }
+    float limit = settings.MaxPressurePSI;
+    if (!isSimulationMode && settings.SensorFullScalePSI > 0 && settings.SensorFullScalePSI < limit)
+        limit = settings.SensorFullScalePSI;
+    if (requested <= 0 || requested > limit) {
+        LOG_ERROR("BLE", "Rejected target pressure: " + String(requested));
+        refuseAir("target pressure is outside the allowed range");
+        return;
+    }
+    targetPressure = requested;
+    valveSessionStartMs = millis();
+    valveSessionActive = true;
     LOG_INFO("BLE", "Start command received with target pressure: " + String(targetPressure));
     OperateAir();
 }

@@ -8,7 +8,7 @@ The relays are already on the ESP32 board. Buy the valves, the sensor, the manif
 |---|---|---|---|
 | 1 | ESP32 Relay X2 | Controller. Two relays are onboard: outermost relay is GPIO16, the other is GPIO17. 12 V goes to the terminal marked VCC. The pin marked 5 V is an output. | [AliExpress](https://www.aliexpress.com/item/1005007334208641.html) |
 | 2 | 12 V normally closed solenoid, 6.5 W | One inflate valve, one deflate valve. Coil wires have no polarity. Before buying adapters, check whether the air thread is 1/8 NPT or 1/4 NPT. | [AliExpress](https://www.aliexpress.com/item/1005006755761577.html) |
-| 1 | Pressure sensor, 0.5–4.5 V, 1/8 NPT | Reads manifold pressure. Choose the PSI range you need. The number stamped on the hex is full scale: 0.5 V is zero, 4.5 V is that full scale. | [AliExpress](https://www.aliexpress.com/item/4001179110023.html) |
+| 1 | Pressure sensor, 0.5–4.5 V, 1/8 NPT | Reads manifold pressure. Choose the PSI range you need. The number stamped on the hex is full scale: 0.5 V is zero, 4.5 V is that full scale. The green wire, after the divider, goes to GPIO34 on the back of the board. | [AliExpress](https://www.aliexpress.com/item/4001179110023.html) |
 | 1 | 8 mm push-fit manifold, 6 ways or more | One shared air volume for the inflate valve, the deflate valve, the sensor, and four tires. An 8-way block leaves spare ports. | [AliExpress](https://www.aliexpress.com/item/1005001462976015.html) |
 
 ## Power and the sensor divider

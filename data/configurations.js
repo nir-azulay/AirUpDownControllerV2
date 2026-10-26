@@ -8,7 +8,7 @@
       var aValues = values.split(";");
       document.getElementById("txt_DeviceName").value = aValues[0];
       document.getElementById("txt_wifissid").value = aValues[1];
-      document.getElementById("txt_wifipassword").value = aValues[2];
+      document.getElementById("txt_wifipassword").value = "";
       document.getElementById("txt_RelayCompressorPin").value = aValues[3];
       document.getElementById("txt_RelayFreePin").value = aValues[4];
       document.getElementById("txt_SensorPin").value = aValues[5];
@@ -21,6 +21,10 @@
       document.getElementById("txt_PressureCalcMethod").value = aValues[13];
       document.getElementById("chk_BLESecurityEnabled").checked = aValues[14] === "1";
       document.getElementById("lbl_version").innerHTML = aValues[15];
+      document.getElementById("txt_MaxPressurePSI").value = aValues[16];
+      document.getElementById("txt_MaxValveOpenSec").value = aValues[17];
+      document.getElementById("txt_SensorFullScalePSI").value = aValues[18];
+      document.getElementById("txt_AccessPointPassword").value = aValues[19];
     }
 
     function saveSettings()
@@ -39,7 +43,11 @@
       MessureWait: document.getElementById("txt_MessureWait").value,
       Precision: document.getElementById("txt_Precision").value,
       PressureCalcMethod: document.getElementById("txt_PressureCalcMethod").value,
-      BLESecurityEnabled: document.getElementById("chk_BLESecurityEnabled").checked ? "true" : "false"});
+      BLESecurityEnabled: document.getElementById("chk_BLESecurityEnabled").checked ? "true" : "false",
+      MaxPressurePSI: document.getElementById("txt_MaxPressurePSI").value,
+      MaxValveOpenSec: document.getElementById("txt_MaxValveOpenSec").value,
+      SensorFullScalePSI: document.getElementById("txt_SensorFullScalePSI").value,
+      AccessPointPassword: document.getElementById("txt_AccessPointPassword").value});
                                       
       var urlwithQS = "/updateSettings?" + params.toString();
       var xhr = new XMLHttpRequest();

@@ -7,4 +7,6 @@ ESP32 firmware that inflates and deflates tires through two 12 V solenoid valves
 - [BLE protocol](docs/BLE_PROTOCOL.md)
 - Schematic: `hardware/AirUpDownController.sch`
 
-Build and flash with PlatformIO (`esp32dev`). The configuration page sets calibration, Wi-Fi, and the optional BLE passkey. The onboard relays stay on GPIO16 (outer, inflate) and GPIO17 (deflate), both active high. If an older flash saved pins 25 and 26, set those two fields to 16 and 17 on the configuration page so the firmware drives the pins the relays are already wired to.
+Build and flash with PlatformIO (`esp32dev`). The onboard relays stay on GPIO16 (outer, inflate) and GPIO17 (deflate), both active high. The pressure sensor uses GPIO34. If an older flash saved relay pins 25 and 26, or sensor pin 27, set those fields on the configuration page. Enter the PSI stamped on the sensor there as well. Both valves stay closed until that full-scale value is set.
+
+The BLE messages keep the same fields the phone apps already use. Maximum pressure, valve-open time, sensor full scale, and the access-point password are configuration-page settings only.

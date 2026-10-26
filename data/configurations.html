@@ -46,12 +46,12 @@
           <label>wifi password</label>
         </td>
         <td>
-          <input class="input" id="txt_wifipassword" type="password" />
+          <input class="input" id="txt_wifipassword" type="password" placeholder="Leave blank to keep the saved password" />
         </td>
       </tr>
       <tr>
         <td>
-          <label>Relay Compressor Pin</label>
+          <label>Relay 1 GPIO (fixed 16)</label>
         </td>
         <td>
           <input class="input" id="txt_RelayCompressorPin" type="text" />
@@ -59,7 +59,7 @@
       </tr>    
       <tr>
         <td>
-          <label>Relay Free Pin</label>
+          <label>Relay 2 GPIO (fixed 17)</label>
         </td>
           
         <td>
@@ -68,7 +68,7 @@
       </tr>            
       <tr>
         <td>
-          <label>Sensor Pin</label>
+          <label>Sensor GPIO (34)</label>
         </td>
           
         <td>
@@ -104,13 +104,45 @@
       </tr> 
       <tr>
         <td>
-          <label>Sensor Value At 50 PSI</label>
+          <label>Sensor value at full scale</label>
         </td>
           
         <td>
           <input class="input" id="txt_SensorValueAt50PSI" type="number" step="0.001" />
         </td>
       </tr> 
+      <tr>
+        <td>
+          <label>Sensor full scale (PSI)</label>
+        </td>
+        <td>
+          <input class="input" id="txt_SensorFullScalePSI" type="number" step="0.1" />
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label>Max pressure (PSI)</label>
+        </td>
+        <td>
+          <input class="input" id="txt_MaxPressurePSI" type="number" step="0.1" />
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label>Max valve open (sec)</label>
+        </td>
+        <td>
+          <input class="input" id="txt_MaxValveOpenSec" type="number" step="1" />
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <label>Access point password</label>
+        </td>
+        <td>
+          <input class="input" id="txt_AccessPointPassword" type="password" />
+        </td>
+      </tr>
       <tr>
         <td>
           <label>BT Pin Code</label>
