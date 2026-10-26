@@ -53,7 +53,7 @@ R5 and R6 are 10 kΩ. R5 is in series with the green wire. R6 goes from the divi
 
 The sensor is not a relay pin. Every GPIO is labeled on the back of the board. Connect the divided green wire to **GPIO34**. That pin is ADC1, so Wi-Fi does not block the reading. Leave the relays on 16 and 17.
 
-A board that already saved its settings may still have sensor pin 27. On the configuration page set the sensor GPIO to 34, then save. GPIO27 is ADC2 and the reading can be wrong while Wi-Fi is connected.
+A saved sensor pin of 27 is changed to 34 when the device boots. GPIO27 is ADC2 and the reading can be wrong while Wi-Fi is connected.
 
 ## Calibration
 
@@ -73,10 +73,10 @@ These limits are on the configuration page. They are not BLE fields, so the phon
 | Setting | Default | What it does |
 |---|---|---|
 | Sensor full scale (PSI) | 0 | The stamp on the sensor. Valves stay closed while this is 0. |
-| Max pressure (PSI) | 50 | A higher target is rejected. A reading above this closes both valves. |
+| Max pressure (PSI) | 50 | A higher target is rejected. Above this, the device only deflates, and only toward a lower target. |
 | Max valve open (sec) | 120 | Closes both valves if a start command runs longer than this. |
 
-A target must be greater than 0 and no higher than the lower of the maximum pressure and the sensor full scale. If five readings in a row disagree by more than 1 PSI, or the sensor signal is missing, both valves close. The phone still receives the same pressure and operation-mode message. Stop is operation mode 1.
+A target must be greater than 0 and no higher than the lower of the maximum pressure and the sensor full scale. The device waits for a settled reading before it opens a valve. Two readings must agree within 3 PSI. If the pressure does not move at least 0.5 PSI toward the target in any 60 second stretch, both valves close. A reading above the sensor's full scale, or a missing signal, also closes both valves. The phone still receives the same pressure and operation-mode message. Stop is operation mode 1.
 
 ## Setup access
 

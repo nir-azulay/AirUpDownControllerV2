@@ -189,7 +189,8 @@ Commands are sent as JSON objects through the Command Characteristic:
 
 - If a command is malformed or cannot be parsed, it will be ignored
 - If the target is not reached before the valve-open limit (configuration page, default 120 seconds), the device closes both valves and returns to Stop
-- If the pressure reading is missing or does not settle within five attempts, the device closes both valves and returns to Stop
+- If the pressure reading is missing, does not settle within 3 PSI, or does not move toward the target, the device closes both valves and returns to Stop
+- A reading above the configured maximum opens the deflate valve only when the target is lower. It never opens the inflate valve in that case
 - Connection loss will trigger automatic disconnection handling and advertising restart
 - If WiFi connection fails, the device creates an access point with the configured device name. The access-point password is set on the configuration page and is not a BLE field. The factory password is `AirUpDown`.
 
