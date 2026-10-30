@@ -1,0 +1,21 @@
+data/settings.json
+  s_8a297305c5de68::t_11e75184ed6320 2-4
+src/settings.cpp
+  s_8a297305c5de68::t_b4bbcaac3589d5 9-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "44cf9c2351f17430f333ed1122f4890e0d069b12",
+  "prompts": {},
+  "sessions": {
+    "s_8a297305c5de68": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "66286c43-ccd4-44ad-8e32-9f73f2cf029a",
+        "model": "grok-4.7"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
