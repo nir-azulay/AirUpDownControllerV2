@@ -6,8 +6,8 @@ const float Software_VER = 1.04;
 // Global settings instance with default values
 DeviceSettings settings = {
     "esp32-AirUpDownController",  // DeviceName
-    "",                   // wifissid
-    "12345678",                   // wifipassword
+    "",                           // wifissid
+    "",                           // wifipassword
     16,                           // RelayCompressorPin (ESP32 Relay X2 relay 1, GPIO16, active high)
     17,                           // RelayFreePin (ESP32 Relay X2 relay 2, GPIO17, active high)
     34,                           // SensorPin (GPIO34, ADC1). Relays stay on 16 and 17.
