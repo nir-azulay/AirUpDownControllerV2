@@ -4,7 +4,6 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
-#include <BLESecurity.h>
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -98,6 +97,7 @@ BLE2902 *pBLE2902;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 bool firstTimeConnceted = true;
+bool bleAuthorized = true;
 String BLEBufferValue = "";
 String incompleteBLEMessage = "";
 
@@ -114,6 +114,7 @@ class MyBLEServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
       firstTimeConnceted = true;
+      bleAuthorized = settings.AccessCode.length() == 0;
       LOG_INFO("BLE", "Client connected");
       // Enable multiple connections
       BLEDevice::startAdvertising();
@@ -121,6 +122,7 @@ class MyBLEServerCallbacks: public BLEServerCallbacks {
 
     void onDisconnect(BLEServer* pServer) {
       deviceConnected = false;
+      bleAuthorized = false;
       LOG_INFO("BLE", "Client disconnected");
       
       // Clear incomplete message on disconnect
@@ -342,7 +344,7 @@ void deleteFile(fs::FS &fs, const String &path)
 String getSettingsParams(const String &var)
 {
     Serial.println(var);
-    String status = settings.DeviceName + ";" + settings.wifissid + ";;" + String(settings.RelayCompressorPin) + ";" + String(settings.RelayFreePin) + ";" + String(settings.SensorPin) + ";" + String(settings.SimulationMode) + ";" + String(settings.MaxSecForStatus) + ";" + String(settings.SensorValueAt0PSI, 3) + ";" + String(settings.SensorValueAt50PSI, 3) + ";" + settings.BTPinCode + ";" + String(settings.MessureWait) + ";" + String(settings.Precision) + ";" + String(settings.PressureCalcMethod) + ";" + String(settings.BLESecurityEnabled ? "1" : "0") + ";" + VERSION_SHORT + ";" + String(settings.MaxPressurePSI, 1) + ";" + String(settings.MaxValveOpenSec) + ";" + String(settings.SensorFullScalePSI, 1) + ";" + settings.AccessPointPassword;
+    String status = settings.DeviceName + ";" + settings.wifissid + ";;" + String(settings.RelayCompressorPin) + ";" + String(settings.RelayFreePin) + ";" + String(settings.SensorPin) + ";" + String(settings.SimulationMode) + ";" + String(settings.MaxSecForStatus) + ";" + String(settings.SensorValueAt0PSI, 3) + ";" + String(settings.SensorValueAt50PSI, 3) + ";;" + String(settings.MessureWait) + ";" + String(settings.Precision) + ";" + String(settings.PressureCalcMethod) + ";0;" + VERSION_SHORT + ";" + String(settings.MaxPressurePSI, 1) + ";" + String(settings.MaxValveOpenSec) + ";" + String(settings.SensorFullScalePSI, 1) + ";" + settings.AccessPointPassword;
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -362,8 +364,6 @@ String getSettingsXML()
     XML += "<SensorValueAt50PSI>" + String(settings.SensorValueAt50PSI, 3) + "</SensorValueAt50PSI>";
     XML += "<MessureWait>" + String(settings.MessureWait) + "</MessureWait>";
     XML += "<Precision>" + String(settings.Precision) + "</Precision>";    
-    XML += "<BTPinCode>" + settings.BTPinCode + "</BTPinCode>";
-    XML += "<BLESecurityEnabled>" + String(settings.BLESecurityEnabled ? "1" : "0") + "</BLESecurityEnabled>";
     XML += "<CurrentPressure>" + String(currentPressure) + "</CurrentPressure>";
     XML += "<Software_VER>" + String(VERSION_SHORT) + "</Software_VER>";
     XML += "</settings>";
@@ -402,8 +402,6 @@ String getSettingsJSON()
     JSON += "'SensorValueAt50PSI': '" + String(settings.SensorValueAt50PSI, 3) + "',";
     JSON += "'MessureWait': '" + String(settings.MessureWait) + "',";
     JSON += "'Precision': '" + String(settings.Precision) + "',";    
-    JSON += "'BTPinCode': '" + settings.BTPinCode + "',";
-    JSON += "'BLESecurityEnabled': '" + String(settings.BLESecurityEnabled ? "1" : "0") + "',";
     JSON += "'CurrentPressure': '" + String(currentPressure) + "',";
     JSON += "'Software_VER': '" + String(VERSION_SHORT) + "',";
     JSON += "'IP': '" + currentIP + "',";    
@@ -474,8 +472,16 @@ void saveSettings(AsyncWebServerRequest *request)
             settings.SensorValueAt0PSI = p->value().toFloat();
         else if (paramName == "SensorValueAt50PSI")
             settings.SensorValueAt50PSI = p->value().toFloat();
-        else if (paramName == "BTPinCode")
-            settings.BTPinCode = p->value();
+        else if (paramName == "AccessCode")
+        {
+            if (p->value().length() > 0)
+                settings.AccessCode = p->value();
+        }
+        else if (paramName == "ClearAccessCode")
+        {
+            if (p->value() == "true" || p->value() == "1")
+                settings.AccessCode = "";
+        }
         else if (paramName == "MessureWait")
             settings.MessureWait = p->value().toDouble();
         else if (paramName == "Precision")
@@ -496,12 +502,6 @@ void saveSettings(AsyncWebServerRequest *request)
         {
             settings.PressureCalcMethod = p->value().toInt();
             LOG_INFO("WEB", "Pressure calculation method set to: " + String(settings.PressureCalcMethod));
-        }
-        else if (paramName == "BLESecurityEnabled")
-        {
-            String sBLESecurity = p->value();
-            settings.BLESecurityEnabled = sBLESecurity.equalsIgnoreCase("true") || sBLESecurity == "1";
-            LOG_INFO("WEB", "BLE Security: " + String(settings.BLESecurityEnabled ? "enabled" : "disabled"));
         }
         else if (paramName == "MaxPressurePSI")
         {
@@ -753,7 +753,8 @@ void loadSettingsfile()
     Serial.println("DEBUG: Loaded SensorValueAt0PSI: " + String(settings.SensorValueAt0PSI, 3));
     Serial.println("DEBUG: Loaded SensorValueAt50PSI: " + String(settings.SensorValueAt50PSI, 3));
     
-    settings.BTPinCode = doc["BTPinCode"].as<String>();
+    if (doc.containsKey("AccessCode"))
+        settings.AccessCode = doc["AccessCode"].as<String>();
     settings.MessureWait = doc["MessureWait"].as<double>();
     settings.Precision = doc["Precision"].as<double>();
     
@@ -770,10 +771,6 @@ void loadSettingsfile()
         LOG_INFO("SETTINGS", "Loaded PressureCalcMethod: " + String(settings.PressureCalcMethod));
     }
     
-    if (doc.containsKey("BLESecurityEnabled")) {
-        settings.BLESecurityEnabled = doc["BLESecurityEnabled"].as<bool>();
-        LOG_INFO("SETTINGS", "Loaded BLESecurityEnabled: " + String(settings.BLESecurityEnabled ? "enabled" : "disabled"));
-    }
     if (doc.containsKey("MaxPressurePSI") && doc["MaxPressurePSI"].as<float>() > 0)
         settings.MaxPressurePSI = doc["MaxPressurePSI"].as<float>();
     if (doc.containsKey("MaxValveOpenSec") && doc["MaxValveOpenSec"].as<int>() >= 10)
@@ -814,10 +811,9 @@ void saveSettingFile()
     doc["SensorValueAt50PSI"] = settings.SensorValueAt50PSI;
     doc["MessureWait"] = settings.MessureWait;
     doc["Precision"] = settings.Precision;    
-    doc["BTPinCode"] = settings.BTPinCode;
+    doc["AccessCode"] = settings.AccessCode;
     doc["SimulationMode"] = settings.SimulationMode;
     doc["PressureCalcMethod"] = settings.PressureCalcMethod;
-    doc["BLESecurityEnabled"] = settings.BLESecurityEnabled;
     doc["MaxPressurePSI"] = settings.MaxPressurePSI;
     doc["MaxValveOpenSec"] = settings.MaxValveOpenSec;
     doc["SensorFullScalePSI"] = settings.SensorFullScalePSI;
@@ -867,22 +863,7 @@ void setupBlueTooth()
     BLEDevice::setMTU(517);
     LOG_DEBUG("BLE", "BLE Device initialized with name: " + settings.DeviceName);
 
-    if (settings.BLESecurityEnabled) {
-        LOG_INFO("BLE", "BLE Security ENABLED - configuring passkey pairing");
-        BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_MITM);
-
-        uint32_t passkey = (uint32_t)settings.BTPinCode.toInt();
-        if (passkey > 999999) passkey = 123456;
-        esp_ble_gap_set_security_param(ESP_BLE_SM_SET_STATIC_PASSKEY, &passkey, sizeof(uint32_t));
-        LOG_INFO("BLE", "Static passkey set to: " + String(passkey));
-
-        BLESecurity *pSecurity = new BLESecurity();
-        pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
-        pSecurity->setCapability(ESP_IO_CAP_OUT);
-        pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-    } else {
-        LOG_INFO("BLE", "BLE Security DISABLED - open connections allowed");
-    }
+    LOG_INFO("BLE", "Application access code is " + String(settings.AccessCode.length() == 0 ? "not set" : "set"));
 
     // Create the BLE Server
     pServer = BLEDevice::createServer();
@@ -907,12 +888,6 @@ void setupBlueTooth()
         BLECharacteristic::PROPERTY_WRITE_NR
     );
     LOG_DEBUG("BLE", "Command characteristic created with UUID: " + String(CHAR2_UUID));
-
-    if (settings.BLESecurityEnabled) {
-        pCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_WRITE_ENC_MITM);
-        pCharacteristic_2->setAccessPermissions(ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_WRITE_ENC_MITM);
-        LOG_DEBUG("BLE", "Characteristic access permissions set to require encrypted connection");
-    }
 
     // Create a BLE Descriptor
     pDescr = new BLEDescriptor((uint16_t)0x2901);
@@ -1001,15 +976,17 @@ void BLESync()
         LOG_VERBOSE("BLE", "Device is connected");
         
         if (firstTimeConnceted) {
-            LOG_INFO("BLE", "First time connection - sending settings");
             firstTimeConnceted = false;
-            
-            String settings = getSettingsJSON();
-            LOG_DEBUG("BLE", "Settings to send: " + settings);
-            
-            pCharacteristic->setValue(settings.c_str());
-            pCharacteristic->notify();
-            LOG_INFO("BLE", "Initial settings sent");
+            if (settings.AccessCode.length() == 0 || bleAuthorized) {
+                LOG_INFO("BLE", "First connection - sending settings");
+                String settingsJson = getSettingsJSON();
+                pCharacteristic->setValue(settingsJson.c_str());
+                pCharacteristic->notify();
+            } else {
+                LOG_INFO("BLE", "First connection - access code required");
+                pCharacteristic->setValue("{\"type\":\"auth\",\"ok\":false,\"required\":true}");
+                pCharacteristic->notify();
+            }
         }
 
         if (BLEBufferValue.length() > 0) {
@@ -1435,6 +1412,22 @@ void SendSettingsToMobile()
 }
 
 void handleDebugModeCommand(DynamicJsonDocument &doc);
+void handleAuthCommand(DynamicJsonDocument &doc);
+
+void sendAuthState(bool ok)
+{
+    if (!deviceConnected || pCharacteristic == nullptr)
+        return;
+    bool required = settings.AccessCode.length() > 0 && !ok;
+    String json = String("{\"type\":\"auth\",\"ok\":") + (ok ? "true" : "false") + ",\"required\":" + (required ? "true" : "false") + "}";
+    pCharacteristic->setValue(json.c_str());
+    pCharacteristic->notify();
+}
+
+bool accessGranted()
+{
+    return settings.AccessCode.length() == 0 || bleAuthorized;
+}
 
 void handleBLEMessage(String Message)
 {
@@ -1449,8 +1442,6 @@ void handleBLEMessage(String Message)
         return;
     }
 
-    LOG_INFO("BLE", "JSON from app: " + sMessage);
-    
     if (!doc.containsKey("command")) {
         LOG_ERROR("BLE", "Missing 'command' field in message");
         return;
@@ -1458,6 +1449,17 @@ void handleBLEMessage(String Message)
     
     int cmd = doc["command"].as<int>();
     LOG_INFO("BLE", "Command received: " + String(cmd));
+
+    if (cmd == 8) {
+        handleAuthCommand(doc);
+        return;
+    }
+
+    if (!accessGranted() && cmd != 1) {
+        LOG_WARNING("BLE", "Command rejected until the access code is accepted");
+        sendAuthState(false);
+        return;
+    }
     
     if (cmd == 1) {
         // Stop command
@@ -1552,14 +1554,10 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     Serial.println("DEBUG: Received SensorValueAt0PSI: " + String(settings.SensorValueAt0PSI, 3));
     Serial.println("DEBUG: Received SensorValueAt50PSI: " + String(settings.SensorValueAt50PSI, 3));
     settings.MessureWait = doc["MessureWait"].as<double>();
-    settings.Precision = doc["Precision"].as<double>();                    
-    settings.BTPinCode = doc["BTPinCode"] | "1234";
+    settings.Precision = doc["Precision"].as<double>();
     if (doc.containsKey("PressureCalcMethod"))
         settings.PressureCalcMethod = doc["PressureCalcMethod"].as<int>();
-    
-    if (doc.containsKey("BLESecurityEnabled"))
-        settings.BLESecurityEnabled = doc["BLESecurityEnabled"].as<bool>();
-    
+
     // Check if SimulationMode is included in the settings update
     if (doc.containsKey("SimulationMode")) {
         settings.SimulationMode = doc["SimulationMode"].as<bool>();
@@ -1610,6 +1608,22 @@ void handleLogLevelCommand(DynamicJsonDocument &doc) {
 void handleGetSettingsCommand() {
     LOG_INFO("BLE", "Get settings command received");
     SendSettingsToMobile();
+}
+
+void handleAuthCommand(DynamicJsonDocument &doc) {
+    String given = doc["accessCode"] | "";
+    if (given.length() > 32)
+        given = given.substring(0, 32);
+    if (settings.AccessCode.length() == 0 || given == settings.AccessCode) {
+        bleAuthorized = true;
+        LOG_INFO("BLE", "Access code accepted");
+        sendAuthState(true);
+        SendSettingsToMobile();
+    } else {
+        bleAuthorized = false;
+        LOG_WARNING("BLE", "Access code rejected");
+        sendAuthState(false);
+    }
 }
 
 void handleDebugModeCommand(DynamicJsonDocument &doc) {

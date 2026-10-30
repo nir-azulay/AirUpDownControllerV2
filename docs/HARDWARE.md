@@ -80,7 +80,7 @@ A target must be greater than 0 and no higher than the lower of the maximum pres
 
 ## Setup access
 
-If the home Wi-Fi does not connect, the board opens an access point named with the device name. The factory access-point password is `AirUpDown`. Change it on the configuration page. It must be at least 8 characters. The serial log does not print it.
+If the home Wi-Fi does not connect, the board opens an access point named with the device name. The factory access-point password is `12345678`. Change it on the configuration page. It must be at least 8 characters. The serial log does not print it.
 
 The configuration page leaves the Wi-Fi password blank. Leave it blank to keep the saved password, or type a new one. The BLE settings message still includes `wifipassword`, because the phone apps expect that field.
 
@@ -90,4 +90,4 @@ What to buy, with links, is in [PARTS.md](PARTS.md).
 
 ## BLE
 
-BLE security is off by default. When it is turned on, pairing uses the passkey stored in `BTPinCode` (default `1234`). The message format is in [BLE_PROTOCOL.md](BLE_PROTOCOL.md). The messages use the same fields the phone apps already know. Maximum pressure, valve time, sensor full scale, and the access-point password are not part of those messages.
+The controller does not use Bluetooth pairing. An access code, set on the configuration page, is checked by the phone after it connects. Leave the code empty to allow any phone to control the device. The message format is in [BLE_PROTOCOL.md](BLE_PROTOCOL.md). Maximum pressure, valve time, sensor full scale, the access code, and the access-point password are not part of the settings message.

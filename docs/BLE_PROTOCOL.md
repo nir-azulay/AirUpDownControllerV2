@@ -47,7 +47,6 @@
     "SensorValueAt50PSI": "number",
     "MessureWait": "number",
     "Precision": "number",
-    "BTPinCode": "string",
     "CurrentPressure": "number",
     "Software_VER": "string",
     "IP": "string",
@@ -109,7 +108,6 @@ Commands are sent as JSON objects through the Command Characteristic:
     "SensorValueAt50PSI": number,
     "MessureWait": number,
     "Precision": number,
-    "BTPinCode": "string",
     "SimulationMode": boolean,
     "PressureCalcMethod": number
 }
@@ -161,19 +159,33 @@ Commands are sent as JSON objects through the Command Characteristic:
 - המכשיר ישלח את ההגדרות בפורמט JSON דרך ה-Notification Characteristic
 - אין צורך בפרמטרים נוספים לפקודה זו
 
+#### 8. Access Code
+```json
+{
+    "command": 8,
+    "accessCode": "string"
+}
+```
+- Sent once after connect when the controller has an access code
+- The controller replies `{"type":"auth","ok":true,"required":false}` and then sends settings
+- A wrong code gets `{"type":"auth","ok":false,"required":true}`
+- An empty access code on the controller means the device is unlocked and this command is not required
+- Stop (command 1) is always accepted. Other commands are rejected until the code matches
+- The access code is never included in a settings notification
+
 ## Connection Flow
 
 1. Device advertises using the configured device name
 2. Client connects to the device
 3. Client enables notifications on the Notification Characteristic
-4. Device sends current settings upon first connection
+4. If an access code is set, the device asks for it and sends settings only after command 8 matches. If no code is set, the device sends settings immediately
 5. Device sends periodic status updates through notifications
 6. Client can send commands at any time through the Command Characteristic
 
 ## Important Notes
 
 1. All JSON messages must end with a closing brace `}`
-2. The device will automatically send settings on first connection
+2. The device sends settings on first connection when no access code is set. When a code is set, settings are sent after command 8 is accepted
 3. Status updates are sent:
    - Periodically based on pressure changes
    - When operation mode changes
@@ -192,7 +204,7 @@ Commands are sent as JSON objects through the Command Characteristic:
 - If the pressure reading is missing, does not settle within 3 PSI, or does not move toward the target, the device closes both valves and returns to Stop
 - A reading above the configured maximum opens the deflate valve only when the target is lower. It never opens the inflate valve in that case
 - Connection loss will trigger automatic disconnection handling and advertising restart
-- If WiFi connection fails, the device creates an access point with the configured device name. The access-point password is set on the configuration page and is not a BLE field. The factory password is `AirUpDown`.
+- If WiFi connection fails, the device creates an access point with the configured device name. The access-point password is set on the configuration page and is not a BLE field. The factory password is `12345678`.
 
 ## Example Integration Code (Pseudocode)
 

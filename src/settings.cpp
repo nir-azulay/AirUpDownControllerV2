@@ -14,14 +14,13 @@ DeviceSettings settings = {
     5,                            // MaxSecForStatus
     310.227f,                     // SensorValueAt0PSI: ADC counts at 0.25 V (0.5 V through the divider)
     2792.045f,                    // SensorValueAt50PSI: ADC counts at full scale (4.5 V through the divider)
-    "1234",                       // BTPinCode
+    "",                           // AccessCode
     2.0,                          // MessureWait
     0.5,                          // Precision
     false,                        // SimulationMode
     1,                            // PressureCalcMethod (default to 1)
-    false,                        // BLESecurityEnabled (default off)
     50.0f,                        // MaxPressurePSI
     120,                          // MaxValveOpenSec
     0.0f,                         // SensorFullScalePSI (enter the stamp on the configuration page)
-    "AirUpDown"                   // AccessPointPassword
+    "12345678"                    // AccessPointPassword
 }; 

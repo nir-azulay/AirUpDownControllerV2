@@ -8,7 +8,7 @@
     "MaxSecForStatus": 10,
     "SensorValueAt0PSI": 410,
     "SensorValueAt50PSI": 3400,
-    "BTPinCode": "1234",
+    "AccessCode": "",
     "MessureWait": 1,
     "Precision": 0.5,
     "SimulationMode": true
