@@ -1,0 +1,21 @@
+include/version.h
+  s_8a297305c5de68::t_c47e907bd4ba29 3,6,9
+versioning
+  s_8a297305c5de68::t_c47e907bd4ba29 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "734ad474cae10500fe22611eb040bdab4bcca3b1",
+  "prompts": {},
+  "sessions": {
+    "s_8a297305c5de68": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "66286c43-ccd4-44ad-8e32-9f73f2cf029a",
+        "model": "grok-4.7"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
