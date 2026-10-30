@@ -1,0 +1,43 @@
+docs/HARDWARE.md
+  s_a78bf3d6b9a4f7::t_838f799386dd0e 56
+  s_a78bf3d6b9a4f7::t_89c862cc122ddd 76,79
+src/main.cpp
+  s_a78bf3d6b9a4f7::t_f194654c6f1361 1343-1346,1354-1357
+  s_a78bf3d6b9a4f7::t_3b8346dac7c4f1 788,790-792,797-798
+  s_a78bf3d6b9a4f7::t_c5cc286eab10f3 1073-1074
+  s_a78bf3d6b9a4f7::t_2a1eae3d7c1c9e 1325
+  s_a78bf3d6b9a4f7::t_aaf1e773d9f63e 1117,1119-1121
+  s_a78bf3d6b9a4f7::t_3de0dab7468dd0 1153
+  s_a78bf3d6b9a4f7::t_647d6276eebf42 1524,1526-1527
+  s_a78bf3d6b9a4f7::t_e62887908f6497 1403,1530-1536
+  s_a78bf3d6b9a4f7::t_a3e6b982281fe2 1368-1369,1402
+  s_a78bf3d6b9a4f7::t_877600af7229af 1379-1401
+  s_a78bf3d6b9a4f7::t_4f7579c9e053fa 1255,1272-1274,1276-1277,1282-1283,1285-1288,1296-1297,1299-1302,1305,1313-1314,1316-1319,1323-1324
+  s_a78bf3d6b9a4f7::t_937070389cfba7 1500
+  s_a78bf3d6b9a4f7::t_60890d503fb45b 61-62
+  s_a78bf3d6b9a4f7::t_3cca343fa97651 1084
+  s_a78bf3d6b9a4f7::t_6e5e358aabad98 1596-1597
+  s_a78bf3d6b9a4f7::t_f16eb16db408d5 58-60,63-65
+include/version.h
+  s_a78bf3d6b9a4f7::t_d5e6867742e43c 3,6,9
+docs/BLE_PROTOCOL.md
+  s_a78bf3d6b9a4f7::t_9ea07bf22853bd 192-193
+versioning
+  s_a78bf3d6b9a4f7::t_d5e6867742e43c 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "78184bd95d32de5abed5b32c568d9443603c1168",
+  "prompts": {},
+  "sessions": {
+    "s_a78bf3d6b9a4f7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "71cf080a-c3c3-429c-bb57-cf6aae336486",
+        "model": "grok-4.7"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}

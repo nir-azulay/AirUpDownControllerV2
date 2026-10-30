@@ -1,0 +1,70 @@
+hardware/AirUpDownController.sch
+  s_a78bf3d6b9a4f7::t_5a09ff51f1205d 510
+  s_a78bf3d6b9a4f7::t_8a24e7a67e299c 329
+  s_a78bf3d6b9a4f7::t_bf65d51d333c95 142
+  s_a78bf3d6b9a4f7::t_fd14acfb19df5c 168
+versioning
+  s_a78bf3d6b9a4f7::t_d4eee2893327dd 1
+README.md
+  s_a78bf3d6b9a4f7::t_1cef9fe1d4e485 10-12
+include/settings.h
+  s_a78bf3d6b9a4f7::t_fa27de1ffa515c 26-29
+src/settings.cpp
+  s_a78bf3d6b9a4f7::t_7502d952b970ca 13,15-16,21-26
+docs/HARDWARE.md
+  s_a78bf3d6b9a4f7::t_e652b5e81c36cb 54-56,60-81,83,85
+  s_a78bf3d6b9a4f7::t_686294cb44e991 93
+data/configurations.js
+  s_a78bf3d6b9a4f7::t_7dcbdd2d8cb75d 24-27
+  s_a78bf3d6b9a4f7::t_6ef6e09166d829 11
+  s_a78bf3d6b9a4f7::t_8e28c276789242 46-50
+docs/BLE_PROTOCOL.md
+  s_a78bf3d6b9a4f7::t_84a5ab0e4458cd 233-234,236-238
+  s_a78bf3d6b9a4f7::t_95c623e4c65530 95
+  s_a78bf3d6b9a4f7::t_cc9dab959ff6c9 191-192,194
+  s_a78bf3d6b9a4f7::t_b31e56244508fa 133
+docs/PARTS.md
+  s_a78bf3d6b9a4f7::t_0e5ba34a51dd3f 11
+src/main.cpp
+  s_a78bf3d6b9a4f7::t_79f39de72d1c65 453-456
+  s_a78bf3d6b9a4f7::t_8b3ba5e14d4afd 723,727-731
+  s_a78bf3d6b9a4f7::t_b47901216f8d33 1167-1168
+  s_a78bf3d6b9a4f7::t_b7afb40edfe6f6 791
+  s_a78bf3d6b9a4f7::t_5898fde7cae553 1228-1255,1269-1271,1273-1276,1278-1286,1288-1293,1296-1299,1301
+  s_a78bf3d6b9a4f7::t_9067dd9a4a83fd 1447,1456-1471
+  s_a78bf3d6b9a4f7::t_c2c7b6f16b73fd 769-782
+  s_a78bf3d6b9a4f7::t_4aeea6536878c1 808-811
+  s_a78bf3d6b9a4f7::t_d6a4478b57cd10 337
+  s_a78bf3d6b9a4f7::t_37d369245c6c6e 498-521
+  s_a78bf3d6b9a4f7::t_00702c2b2045f6 1334-1350,1358-1362
+  s_a78bf3d6b9a4f7::t_36a382c6c3c490 1100-1109,1112-1114,1116-1126,1131,1133,1135-1145,1147-1148
+  s_a78bf3d6b9a4f7::t_d89d869e42904e 682,687
+  s_a78bf3d6b9a4f7::t_64282ee3400373 844
+  s_a78bf3d6b9a4f7::t_44a551587fedab 55-57
+include/version.h
+  s_a78bf3d6b9a4f7::t_d4eee2893327dd 3,6,9
+data/configurations.html
+  s_a78bf3d6b9a4f7::t_39d2ab1455cd27 54
+  s_a78bf3d6b9a4f7::t_2a23f975367245 107
+  s_a78bf3d6b9a4f7::t_91d61671e09d21 116-145
+  s_a78bf3d6b9a4f7::t_7cfbdd3705792e 71
+  s_a78bf3d6b9a4f7::t_03dbbac93d3da9 49
+  s_a78bf3d6b9a4f7::t_864943eef08220 114-115
+  s_a78bf3d6b9a4f7::t_9b1c809e955ccc 62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "63f955b205dea963547d1e528cae0422bcf29eb1",
+  "prompts": {},
+  "sessions": {
+    "s_a78bf3d6b9a4f7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "71cf080a-c3c3-429c-bb57-cf6aae336486",
+        "model": "grok-4.7"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
