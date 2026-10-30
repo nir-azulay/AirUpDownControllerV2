@@ -1,0 +1,19 @@
+docs/HARDWARE.md
+  s_8a297305c5de68::t_adabb83b2f035f 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "a45f2c80cd06e6bebd2a3f7b6c32744bf22d6739",
+  "prompts": {},
+  "sessions": {
+    "s_8a297305c5de68": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "66286c43-ccd4-44ad-8e32-9f73f2cf029a",
+        "model": "grok-4.7"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
