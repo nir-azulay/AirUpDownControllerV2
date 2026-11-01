@@ -1,0 +1,30 @@
+src/main.cpp
+  s_d312b23a5c97c7::t_df542b193cb62e 666,668-671,673,675,677,684,687-688,700-703,705-722,725-726
+  s_d312b23a5c97c7::t_d9a685333eb8e6 141-151
+  s_d312b23a5c97c7::t_0e500352d7772b 1475-1477
+  s_d312b23a5c97c7::t_318beeb395b8e7 1800-1812,1815-1816,1848,1856,1863-1868,1882
+  s_d312b23a5c97c7::t_933091458bd583 1180-1200,1213,1217,1229
+  s_d312b23a5c97c7::t_fcaef4523815db 1524-1525,1527-1528
+  s_d312b23a5c97c7::t_52691911ed6c20 1428-1430
+  s_d312b23a5c97c7::t_1b67ce6a9c1ff1 864
+include/version.h
+  s_d312b23a5c97c7::t_daf696f832681e 3,6,9
+versioning
+  s_d312b23a5c97c7::t_8a8e728703c7c0 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "345101f50fa627d50ab262aab1b61ee69c01a8aa",
+  "prompts": {},
+  "sessions": {
+    "s_d312b23a5c97c7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4073ab5b-854e-4e47-8475-abc551f21d7a",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
