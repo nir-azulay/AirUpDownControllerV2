@@ -1,0 +1,36 @@
+data/configurations.js
+  s_d312b23a5c97c7::t_6146476fb20446 1-6,8-10,12-36,38-69
+data/configurations.html
+  s_d312b23a5c97c7::t_ef7f3229e89d69 22-23,27,33,44-49,51-55,57-63,66-70,72-80,91-92,103,105-115,129,140,146
+src/main.cpp
+  s_d312b23a5c97c7::t_413971260de9e5 993,995-998,1006,1010-1015
+  s_d312b23a5c97c7::t_aca6542ef253dd 1209-1222
+  s_d312b23a5c97c7::t_de648e2b931b1a 453,458-459,461,463,465,467,469,471,473,475,477,479,482-483,486,488,491,500,504,506,508,510-513
+  s_d312b23a5c97c7::t_5f61cd7a227e40 518-521,523,527
+  s_d312b23a5c97c7::t_da0f85f04f7f87 836-837,847,854-855,857,868-869,871,886
+  s_d312b23a5c97c7::t_ebd6ca72554cad 20-24
+  s_d312b23a5c97c7::t_6781cec3e44afb 1808-1810,1822-1824
+  s_d312b23a5c97c7::t_74671552363903 265-272,293,310-316,318,324
+  s_d312b23a5c97c7::t_6480cc1ba269d4 345
+  s_d312b23a5c97c7::t_0af8387d65ea66 568,579
+  s_d312b23a5c97c7::t_3f7fffc2a14b41 972-991,994,1000-1005,1007,1016-1017
+  s_d312b23a5c97c7::t_9e8eded198151e 821
+  s_d312b23a5c97c7::t_6265e92d7fd124 992
+  s_d312b23a5c97c7::t_bbcb34e522a468 999
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "1c0dcc79ef535e8a25eede1bf32559962c43b71f",
+  "prompts": {},
+  "sessions": {
+    "s_d312b23a5c97c7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4073ab5b-854e-4e47-8475-abc551f21d7a",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
