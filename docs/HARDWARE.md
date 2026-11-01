@@ -66,13 +66,13 @@ The phone apps still use the existing names `SensorValueAt0PSI` and `SensorValue
 
 A new device starts at 310.227 counts and 2792.045 counts. That is 0.25 V and 2.25 V on the divider, which is 0.5 V and 4.5 V on the green wire. A device that already saved 412 and 3182 keeps those saved numbers until they are changed on the configuration page. Zero pressure is about 0.5 V on the green wire, not 0 V.
 
-## Valve limits
+## Valve limits & Configuration
 
-These limits are on the configuration page. They are not BLE fields, so the phone apps do not send or receive them.
+All 18 controller settings (including these safety limits) can be configured on the controller's web page (`/configurations`) or from the iOS and Android apps over BLE.
 
 | Setting | Default | What it does |
 |---|---|---|
-| Sensor full scale (PSI) | 0 | The stamp on the sensor. Valves stay closed while this is 0. |
+| Sensor full scale (PSI) | 50 | The stamp on the sensor. Valves stay closed while this is 0. |
 | Max pressure (PSI) | 50 | A higher target is rejected. Above this, the device only deflates, and only toward a lower target. |
 | Max valve open (sec) | 120 | Closes both valves if a start command runs longer than this. |
 
@@ -80,9 +80,9 @@ A target must be greater than 0 and no higher than the lower of the maximum pres
 
 ## Setup access
 
-If the home Wi-Fi does not connect, the board opens an access point named with the device name. The factory access-point password is `12345678`. Change it on the configuration page. It must be at least 8 characters. The serial log does not print it.
+If the home Wi-Fi does not connect, the board opens an access point named with the device name. The factory access-point password is `12345678`. Change it on the configuration page or in the mobile app's Device Settings. It must be at least 8 characters. The serial log does not print it.
 
-The configuration page leaves the Wi-Fi password blank. Leave it blank to keep the saved password, or type a new one. The BLE settings message still includes `wifipassword`, because the phone apps expect that field.
+Both the web configuration page and the mobile apps include a **Scan** button that scans nearby 2.4 GHz Wi-Fi networks seen by the ESP32 and lets you pick an SSID from a dropdown list, plus **Show / Hide** toggles for all password fields.
 
 ## Parts
 
@@ -90,4 +90,4 @@ What to buy, with links, is in [PARTS.md](PARTS.md).
 
 ## BLE
 
-The controller does not use Bluetooth pairing. An access code, set on the configuration page, is checked by the phone after it connects. Leave the code empty to allow any phone to control the device. The message format is in [BLE_PROTOCOL.md](BLE_PROTOCOL.md). Maximum pressure, valve time, sensor full scale, the access code, and the access-point password are not part of the settings message.
+The controller does not use OS-level Bluetooth pairing. An optional application access code, set on the configuration page or via the mobile app, is checked by the phone after it connects (`command: 8`). Leave the code empty to allow any phone to control the device. The full message format and 180-byte chunking protocol are documented in [BLE_PROTOCOL.md](BLE_PROTOCOL.md).

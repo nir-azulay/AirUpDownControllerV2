@@ -1,251 +1,203 @@
-# BLE Communication Protocol Documentation
+# BLE Communication Protocol Documentation (`v1.0` Firmware / `v2.1.0` Apps)
 
 ## Device Information
-- Device Name: Dynamic (configurable in settings)
-- Service UUID: `4fafc201-1fb5-459e-8fcc-c5c9c331914b`
-- MTU Size: 517 bytes
+- **Device Name:** Dynamic (configurable in settings, default `esp32-AirUpDownController`)
+- **Service UUID:** `4fafc201-1fb5-459e-8fcc-c5c9c331914b`
+- **Requested MTU Size:** `517` bytes
+- **Chunking Window:** `180` bytes bidirectional (for payloads `> 180` bytes)
 
 ## Characteristics
 
-### 1. Notification Characteristic
-- UUID: `beb5483e-36e1-4688-b7f5-ea07361b26a8`
-- Properties: NOTIFY
-- Description: Used by the device to send status updates and settings to the client
-- Notifications are enabled using the 0x2902 descriptor
+### 1. Notification Characteristic (`ESP32 → Mobile`)
+- **UUID:** `beb5483e-36e1-4688-b7f5-ea07361b26a8`
+- **Properties:** `NOTIFY`
+- **CCCD Descriptor:** `0x2902`
+- **Description:** Used by the ESP32 controller to push status updates, full settings, authentication results, target-reached events, and Wi-Fi scan results to the mobile client.
+- **Chunking:** Payloads exceeding `180` bytes are sent in `180`-byte notification slices with `15 ms` pacing (`notifyBLEPayload()`). Clients reassemble slices until brace depth (`{` and `}`) balances to `0`.
 
-### 2. Command Characteristic
-- UUID: `e3223119-9445-4e96-a4a1-85358c4046a2`
-- Properties: READ, WRITE
-- Description: Used by the client to send commands to the device
+### 2. Command Characteristic (`Mobile → ESP32`)
+- **UUID:** `e3223119-9445-4e96-a4a1-85358c4046a2`
+- **Properties:** `READ | WRITE`
+- **Description:** Used by the mobile client to send JSON commands to the controller.
+- **Chunking:** Commands exceeding `180` bytes (such as `command: 3` full settings updates) are split by the mobile client into `180`-byte writes spaced by `25 ms`. The ESP32 buffers chunks in `bleRxBuffer` until a complete JSON object is received.
 
-## Message Formats
+---
 
-### Device to Client Messages (Notifications)
+## Device to Client Messages (Notifications)
 
-#### 1. Status Update
+### 1. Status Update
 ```json
 {
-    "Pressure": "current_pressure",
-    "operationMode": "operation_mode"
+  "Pressure": "28.5",
+  "operationMode": "1",
+  "pressureValid": true,
+  "rawADC": 1420,
+  "voltage": 1.144
 }
 ```
-- `current_pressure`: Float value representing current pressure in PSI (with 1 decimal precision)
-- `operationMode`: Integer representing operation mode (1: Stop, 2: Inflate, 3: Deflate)
+- `Pressure`: String-formatted float representing current manifold pressure in PSI (`1` decimal place).
+- `operationMode`: String-formatted integer (`"1"` = Stop, `"2"` = Inflate, `"3"` = Deflate).
+- `pressureValid`: Boolean indicating whether the sensor signal is within valid operating bounds.
+- `rawADC` & `voltage`: Included only when **Debug Mode** (`command: 7`) is enabled.
 
-#### 2. Settings Update
+### 2. Full Settings Update (`operationMode: 4`)
 ```json
 {
-    "operationMode": 4,
-    "DeviceName": "string",
-    "wifissid": "string",
-    "wifipassword": "string",
-    "RelayCompressorPin": "number",
-    "RelayFreePin": "number",
-    "SensorPin": "number",
-    "MaxSecForStatus": "number",
-    "SensorValueAt0PSI": "number",
-    "SensorValueAt50PSI": "number",
-    "MessureWait": "number",
-    "Precision": "number",
-    "CurrentPressure": "number",
-    "Software_VER": "string",
-    "IP": "string",
-    "SimulationMode": "boolean",
-    "PressureCalcMethod": "number"
+  "operationMode": 4,
+  "DeviceName": "Raptor-Air-MNG",
+  "wifissid": "MyWiFi",
+  "wifipassword": "MyPassword",
+  "RelayCompressorPin": 17,
+  "RelayFreePin": 16,
+  "SensorPin": 32,
+  "MaxSecForStatus": 30,
+  "SensorValueAt0PSI": 0.321,
+  "SensorValueAt50PSI": 3.140,
+  "SensorFullScalePSI": 50.0,
+  "MaxPressurePSI": 50.0,
+  "MaxValveOpenSec": 120,
+  "AccessPointPassword": "12345678",
+  "HasAccessCode": false,
+  "MessureWait": 1.00,
+  "Precision": 0.30,
+  "CurrentPressure": 28.5,
+  "Software_VER": "v1.0.261101_256",
+  "IP": "192.168.10.155",
+  "SimulationMode": false,
+  "PressureCalcMethod": 2
 }
 ```
-- All device settings are included in this notification
-- The `SimulationMode` field indicates whether simulation mode is currently enabled (true) or disabled (false)
-- The `PressureCalcMethod` field selects the pressure calculation method (1: ADC calibration, 2: voltage calibration)
-- This notification is sent when the device first connects to a client or when the client sends a Get Settings command
+- Sent automatically upon connection (if unlocked) or immediately after successful authentication (`command: 8`), and in response to `command: 6`.
+- `HasAccessCode`: `true` if a non-empty `AccessCode` is configured on the controller (`AccessCode` itself is never sent in plaintext over BLE notifications).
 
-#### 3. Target Pressure Reached Notification
+### 3. Target Pressure Reached Notification
 ```json
 {
-    "type": "target_reached",
-    "targetPressure": "number",
-    "currentPressure": "number"
+  "type": "target_reached",
+  "targetPressure": 32.0,
+  "currentPressure": 32.0
 }
 ```
-- `type`: Always "target_reached" to identify this notification type
-- `targetPressure`: The target pressure that was set
-- `currentPressure`: The current pressure reading when target was reached
-- This notification is sent once when the system reaches the target pressure and stops
+- Sent once when active inflation or deflation reaches `targetPressure` within `±Precision` PSI and the valves close.
 
-### Client to Device Commands
-
-Commands are sent as JSON objects through the Command Characteristic:
-
-#### 1. Stop Command
+### 4. Authentication State Notification
 ```json
 {
-    "command": 1
+  "type": "auth",
+  "ok": true,
+  "required": false
 }
 ```
+- Sent on connection if an `AccessCode` is required (`{"type":"auth","ok":false,"required":true}`) and in response to `command: 8`.
 
-#### 2. Start/Set Target Pressure Command
+### 5. Wi-Fi Scan Results Notification
 ```json
 {
-    "command": 2,
-    "targetPressure": number
+  "type": "wifi_list",
+  "networks": "HomeWiFi|-48;GarageAP|-67;TrailHotspot|-79"
 }
 ```
-- `targetPressure`: Desired pressure value in PSI
-- The device rejects a target that is not above 0, or that is above the maximum pressure or the sensor full scale. Those two limits are set on the configuration page and are not fields in this message. On rejection the device stays in Stop (operation mode 1) and reports pressure with the existing status message.
+- Sent in response to `command: 9` (`scan_wifi`). While the ESP32 radio is actively scanning channels, it first notifies `{"type":"wifi_list","scanning":true}` and pushes the semicolon-delimited `SSID|RSSI` list once `WiFi.scanComplete()` finishes.
 
-#### 3. Update Settings Command
+---
+
+## Client to Device Commands
+
+### 1. Stop Command (`command: 1`)
 ```json
 {
-    "command": 3,
-    "DeviceName": "string",
-    "wifissid": "string",
-    "wifipassword": "string",
-    "RelayCompressorPin": number,
-    "RelayFreePin": number,
-    "SensorPin": number,
-    "MaxSecForStatus": number,
-    "SensorValueAt0PSI": number,
-    "SensorValueAt50PSI": number,
-    "MessureWait": number,
-    "Precision": number,
-    "SimulationMode": boolean,
-    "PressureCalcMethod": number
+  "command": 1
 }
 ```
-- All fields are optional - only include the settings you want to update
-- The `PressureCalcMethod` field selects the pressure calculation method (1: ADC calibration, 2: voltage calibration)
-- After updating settings, the device will restart to apply the changes
-- The `SimulationMode` field can be used to enable (true) or disable (false) simulation mode
+- Immediately closes both valves (`StopAir()`) and cancels the active session. Always accepted, even if the connection is not yet authenticated.
 
-#### 4. Simulation Mode Command
+### 2. Start / Set Target Pressure Command (`command: 2`)
 ```json
 {
-    "command": 4,
-    "enabled": boolean
+  "command": 2,
+  "targetPressure": 32.0
 }
 ```
-- `enabled`: true להפעלת מצב סימולציה, false לכיבוי מצב סימולציה
-- במצב סימולציה:
-  - הלחץ יעלה ב-0.5 PSI בכל קריאה בזמן ניפוח
-  - הלחץ ירד ב-0.3 PSI בכל קריאה בזמן שחרור אוויר
-  - Pressure stays between 0 and the maximum pressure from the configuration page. The default maximum is 50 PSI.
-  - קריאות מהחיישן האמיתי יתעלמו
-  - הלחץ ההתחלתי יאופס ל-0 בעת הפעלת הסימולציה
-- **Important**: The simulation mode setting is now persistent and will be saved to the device's memory. The setting will be retained even after device restart or power cycle.
-- The current simulation mode status is included in the Settings Update notification as the `SimulationMode` field.
+- `targetPressure`: Desired pressure in PSI (`0 < targetPressure <= min(MaxPressurePSI, SensorFullScalePSI)`).
 
-#### 5. Log Level Command
+### 3. Update Settings Command (`command: 3`)
 ```json
 {
-    "command": 5,
-    "level": number
+  "command": 3,
+  "DeviceName": "Raptor-Air-MNG",
+  "wifissid": "MyWiFi",
+  "wifipassword": "MyPassword",
+  "RelayCompressorPin": 17,
+  "RelayFreePin": 16,
+  "SensorPin": 32,
+  "MaxSecForStatus": 30,
+  "SensorValueAt0PSI": 0.321,
+  "SensorValueAt50PSI": 3.140,
+  "SensorFullScalePSI": 50.0,
+  "MaxPressurePSI": 50.0,
+  "MaxValveOpenSec": 120,
+  "AccessPointPassword": "12345678",
+  "AccessCode": "",
+  "ClearAccessCode": false,
+  "MessureWait": 1.0,
+  "Precision": 0.3,
+  "SimulationMode": false,
+  "PressureCalcMethod": 2
 }
 ```
-- `level`: רמת הלוג הרצויה (0-5)
-  - 0: NONE - ללא לוגים
-  - 1: ERROR - שגיאות בלבד
-  - 2: WARNING - שגיאות ואזהרות
-  - 3: INFO - מידע כללי (ברירת מחדל)
-  - 4: DEBUG - מידע לדיבוג
-  - 5: VERBOSE - מידע מפורט מאוד
+- All fields beyond `"command": 3` are optional; only provided keys are updated.
+- Pass `"ClearAccessCode": true` to clear an existing BLE access code, or pass a non-empty `"AccessCode"` to set/change it.
+- Settings are validated by `normalizeSettings()`, saved to `/spiffs/settings.json` on the main loop, and the ESP32 reboots after `1.8 s`.
 
-#### 6. Get Settings Command
+### 4. Simulation Mode Command (`command: 4`)
 ```json
 {
-    "command": 6
+  "command": 4,
+  "enabled": true
 }
 ```
-- שליחת פקודה זו תגרום למכשיר לשלוח את כל ההגדרות הנוכחיות
-- המכשיר ישלח את ההגדרות בפורמט JSON דרך ה-Notification Characteristic
-- אין צורך בפרמטרים נוספים לפקודה זו
+- Enables or disables `SimulationMode` (`+0.5 PSI` per step during inflation, `-0.3 PSI` per step during deflation, with physical relays kept `LOW`), persists the setting to flash, and sends an updated settings notification.
 
-#### 8. Access Code
+### 5. Log Level Command (`command: 5`)
 ```json
 {
-    "command": 8,
-    "accessCode": "string"
+  "command": 5,
+  "level": 3
 }
 ```
-- Sent once after connect when the controller has an access code
-- The controller replies `{"type":"auth","ok":true,"required":false}` and then sends settings
-- A wrong code gets `{"type":"auth","ok":false,"required":true}`
-- An empty access code on the controller means the device is unlocked and this command is not required
-- Stop (command 1) is always accepted. Other commands are rejected until the code matches
-- The access code is never included in a settings notification
+- Sets serial log verbosity (`0` = NONE, `1` = ERROR, `2` = WARNING, `3` = INFO, `4` = DEBUG, `5` = VERBOSE).
 
-## Connection Flow
-
-1. Device advertises using the configured device name
-2. Client connects to the device
-3. Client enables notifications on the Notification Characteristic
-4. If an access code is set, the device asks for it and sends settings only after command 8 matches. If no code is set, the device sends settings immediately
-5. Device sends periodic status updates through notifications
-6. Client can send commands at any time through the Command Characteristic
-
-## Important Notes
-
-1. All JSON messages must end with a closing brace `}`
-2. The device sends settings on first connection when no access code is set. When a code is set, settings are sent after command 8 is accepted
-3. Status updates are sent:
-   - Periodically based on pressure changes
-   - When operation mode changes
-   - After each pressure reading
-4. After settings update (command 3), the device will restart
-5. Pressure values are in PSI units
-6. The device supports chunked BLE messages for larger payloads
-7. Pressure readings have a configurable precision (default 0.5 PSI)
-8. Pressure measurement wait time is configurable (default 2 seconds)
-9. All settings, including simulation mode, are persistent and saved to the device's flash memory
-
-## Error Handling
-
-- If a command is malformed or cannot be parsed, it will be ignored
-- If the target is not reached before the valve-open limit (configuration page, default 120 seconds), the device closes both valves and returns to Stop
-- If the pressure reading is missing, does not settle within 3 PSI, or does not move toward the target, the device closes both valves and returns to Stop
-- A reading above the configured maximum opens the deflate valve only when the target is lower. It never opens the inflate valve in that case
-- Connection loss will trigger automatic disconnection handling and advertising restart
-- If WiFi connection fails, the device creates an access point with the configured device name. The access-point password is set on the configuration page and is not a BLE field. The factory password is `12345678`.
-
-## Example Integration Code (Pseudocode)
-
-```python
-# Example connection and command sending
-def connect_to_device():
-    device = BLE.scan_for_service("4fafc201-1fb5-459e-8fcc-c5c9c331914b")
-    device.connect()
-    notify_char = device.get_characteristic("beb5483e-36e1-4688-b7f5-ea07361b26a8")
-    command_char = device.get_characteristic("e3223119-9445-4e96-a4a1-85358c4046a2")
-    
-    # Enable notifications
-    notify_char.enable_notifications(callback=on_notification)
-    
-    return device, command_char
-
-def send_target_pressure(command_char, pressure):
-    command = {
-        "command": 2,
-        "targetPressure": pressure
-    }
-    command_char.write(json.dumps(command))
-
-def on_notification(data):
-    status = json.loads(data)
-    if "Pressure" in status:
-        # Handle pressure update
-        current_pressure = float(status["Pressure"])
-        operation_mode = int(status["operationMode"])
-    else:
-        # Handle settings update
-        settings = status
+### 6. Get Settings Command (`command: 6`)
+```json
+{
+  "command": 6
+}
 ```
+- Requests an immediate `operationMode: 4` full settings notification.
 
-## Pressure Calculation Methods
+### 7. Debug Mode Command (`command: 7`)
+```json
+{
+  "command": 7,
+  "enabled": true
+}
+```
+- Enables or disables inclusion of `rawADC` and `voltage` in periodic pressure status notifications.
 
-The device supports two methods for calculating pressure from the analog sensor. The method can be selected using the `PressureCalcMethod` setting (1 or 2).
+### 8. Access Code Authentication Command (`command: 8`)
+```json
+{
+  "command": 8,
+  "accessCode": "1234"
+}
+```
+- Verifies the access code when `HasAccessCode` is enabled on the controller. On match, replies `{"type":"auth","ok":true,"required":false}` followed by the full settings payload.
 
-- **1:** ADC calibration (default). `SensorValueAt0PSI` and `SensorValueAt50PSI` are raw ADC counts at zero and at the sensor's full scale. The PSI span is the full-scale value on the configuration page.
-- **2:** Voltage calibration. The same two fields are voltages after the divider, at zero and at full scale.
-
-The field names above are unchanged so existing phone apps keep working. Maximum pressure, maximum valve-open time, sensor full-scale PSI, and the access-point password are stored on the device and edited on the configuration page. Do not add them to these BLE messages.
-
-See [HARDWARE.md](HARDWARE.md) for the wiring and the calibration values. 
+### 9. Scan Wi-Fi Networks Command (`command: 9`)
+```json
+{
+  "command": 9,
+  "rescan": true
+}
+```
+- Instructs the ESP32 controller to scan nearby 2.4 GHz Wi-Fi networks and return a `wifi_list` notification.
