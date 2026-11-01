@@ -584,6 +584,53 @@ void setupWebServer()
                   request->send(response);
               });
 
+    server.on("/scanWifi", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                  bool forceRescan = request->hasParam("rescan");
+                  int n = WiFi.scanComplete();
+                  if (forceRescan && n != WIFI_SCAN_RUNNING) {
+                      WiFi.scanDelete();
+                      WiFi.scanNetworks(true);
+                      n = WIFI_SCAN_RUNNING;
+                  } else if (n == WIFI_SCAN_FAILED) {
+                      WiFi.scanNetworks(true);
+                      n = WIFI_SCAN_RUNNING;
+                  }
+
+                  AsyncResponseStream *response = request->beginResponseStream("application/json");
+                  response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+                  if (n == WIFI_SCAN_RUNNING || n < 0) {
+                      response->print("{\"scanning\":true,\"networks\":[]}");
+                      request->send(response);
+                      return;
+                  }
+
+                  response->print("{\"scanning\":false,\"networks\":[");
+                  bool first = true;
+                  for (int i = 0; i < n; i++) {
+                      String ssid = WiFi.SSID(i);
+                      ssid.trim();
+                      if (ssid.length() == 0) continue;
+                      // Deduplicate SSIDs
+                      bool duplicate = false;
+                      for (int j = 0; j < i; j++) {
+                          if (WiFi.SSID(j) == ssid) {
+                              duplicate = true;
+                              break;
+                          }
+                      }
+                      if (duplicate) continue;
+
+                      ssid.replace("\\", "\\\\");
+                      ssid.replace("\"", "\\\"");
+                      if (!first) response->print(",");
+                      first = false;
+                      response->printf("{\"ssid\":\"%s\",\"rssi\":%d}", ssid.c_str(), (int)WiFi.RSSI(i));
+                  }
+                  response->print("]}");
+                  request->send(response);
+              });
+
     server.on("/configurations.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/configurations.css", "text/css"); });
 
@@ -698,10 +745,10 @@ void setupWiFi()
     else
     {
         // Always fall back to SoftAP if Wi-Fi is not configured or failed to connect
-        WiFi.disconnect(true, true);
+        WiFi.disconnect(false, true);
         WiFi.mode(WIFI_OFF);
         delay(100);
-        WiFi.mode(WIFI_AP);
+        WiFi.mode(WIFI_AP_STA);
 
         String apName = settings.DeviceName;
         apName.trim();
@@ -728,6 +775,9 @@ void setupWiFi()
         Serial.println("browse to the following IP: " + IP.toString());
         currentIP = IP.toString();
     }
+
+    // Start an initial background Wi-Fi scan so SSIDs are ready for the configuration page
+    WiFi.scanNetworks(true);
 }
 
 //========================
