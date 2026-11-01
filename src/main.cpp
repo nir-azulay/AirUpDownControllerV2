@@ -214,32 +214,44 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
 
 void handleDoUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
 {
+    static FILE *uploadFp = nullptr;
+    String cleanName = filename;
+    if (cleanName.startsWith("/")) {
+        cleanName = cleanName.substring(1);
+    }
+    String fullPath = String("/spiffs/") + cleanName;
+
     if (!index)
     {
         content_len = request->contentLength();
-        Serial.printf("UploadStart: %s\n", filename.c_str());
-    }
-
-    if (opened == false)
-    {
-        opened = true;
-        file = SPIFFS.open(String("/") + filename, FILE_WRITE);
-        if (!file)
-        {
+        Serial.printf("UploadStart: %s (%u bytes)\n", cleanName.c_str(), (unsigned int)content_len);
+        if (uploadFp) {
+            fclose(uploadFp);
+            uploadFp = nullptr;
+        }
+        unlink(fullPath.c_str());
+        uploadFp = fopen(fullPath.c_str(), "w");
+        if (!uploadFp) {
             Serial.println("- failed to open file for writing");
             return;
         }
+        setvbuf(uploadFp, NULL, _IONBF, 0);
     }
 
-    if (file.write(data, len) != len)
+    if (uploadFp && len > 0)
     {
-        Serial.println("- failed to write");
-        return;
+        if (fwrite(data, 1, len, uploadFp) != len) {
+            Serial.println("- failed to write");
+        }
     }
 
     if (final)
     {
-        file.close();
+        if (uploadFp) {
+            fflush(uploadFp);
+            fclose(uploadFp);
+            uploadFp = nullptr;
+        }
         opened = false;
         Serial.println("---------------");
         Serial.println("Upload complete");
@@ -590,10 +602,11 @@ void setupWebServer()
                   int n = WiFi.scanComplete();
                   if (forceRescan && n != WIFI_SCAN_RUNNING) {
                       WiFi.scanDelete();
-                      WiFi.scanNetworks(true);
+                      // Fast active scan (120ms/channel) so STA/AP connection stays responsive
+                      WiFi.scanNetworks(true, false, false, 120);
                       n = WIFI_SCAN_RUNNING;
                   } else if (n == WIFI_SCAN_FAILED) {
-                      WiFi.scanNetworks(true);
+                      WiFi.scanNetworks(true, false, false, 120);
                       n = WIFI_SCAN_RUNNING;
                   }
 
@@ -611,10 +624,11 @@ void setupWebServer()
                       String ssid = WiFi.SSID(i);
                       ssid.trim();
                       if (ssid.length() == 0) continue;
-                      // Deduplicate SSIDs
                       bool duplicate = false;
                       for (int j = 0; j < i; j++) {
-                          if (WiFi.SSID(j) == ssid) {
+                          String prev = WiFi.SSID(j);
+                          prev.trim();
+                          if (prev == ssid) {
                               duplicate = true;
                               break;
                           }
@@ -776,8 +790,8 @@ void setupWiFi()
         currentIP = IP.toString();
     }
 
-    // Start an initial background Wi-Fi scan so SSIDs are ready for the configuration page
-    WiFi.scanNetworks(true);
+    // Start an initial background Wi-Fi scan (120ms/ch) so SSIDs are ready for the configuration page
+    WiFi.scanNetworks(true, false, false, 120);
 }
 
 //========================

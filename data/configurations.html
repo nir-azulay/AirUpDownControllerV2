@@ -12,16 +12,21 @@ h1 { color: #fff; font-size: 26px; margin: 12px 0 18px; }
 form { background: #fff; max-width: 460px; margin: 0 auto 24px; padding: 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: left; }
 table { width: 100%; border-collapse: collapse; }
 td { padding: 5px 4px; vertical-align: middle; }
-td:first-child { width: 44%; font-weight: 600; color: #444; }
+td:first-child { width: 42%; font-weight: 600; color: #444; }
 input, select { background: #f1f3f5; border: 1px solid #dce1e6; padding: 0 10px; width: 100%; height: 38px; border-radius: 6px; font-size: 14px; color: #222; }
 input:focus, select:focus { outline: none; border-color: #00acc1; background: #fff; }
 input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; margin: 0 6px 0 0; cursor: pointer; }
 .inline-check { display: inline-flex; align-items: center; font-size: 13px; color: #555; margin-top: 6px; cursor: pointer; }
-.wifi-scan-row { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
-.wifi-scan-row select { flex: 1; height: 34px; font-size: 13px; }
-.btn-scan { background-color: #00acc1; color: #fff; border: none; border-radius: 6px; padding: 0 12px; height: 34px; font-size: 12px; font-weight: 600; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.wifi-scan-row, .pwd-row { display: flex; gap: 6px; align-items: center; }
+.wifi-scan-row { margin-top: 6px; }
+.wifi-scan-row select { flex: 1; height: 36px; font-size: 13px; }
+.pwd-row input { flex: 1; }
+.btn-scan, .btn-eye { background-color: #00acc1; color: #fff; border: none; border-radius: 6px; padding: 0 10px; height: 38px; font-size: 12px; font-weight: 600; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.btn-scan { height: 36px; padding: 0 12px; }
+.btn-eye { background-color: #607d8b; min-width: 54px; }
 .btn-scan:hover:enabled { background-color: #008fa1; }
-.btn-scan:disabled { background-color: #cfd8dc; color: #90a4ae; cursor: default; }
+.btn-eye:hover:enabled { background-color: #455a64; }
+.btn-scan:disabled, .btn-eye:disabled { background-color: #cfd8dc; color: #90a4ae; cursor: default; }
 .btn-row { display: flex; gap: 10px; margin-top: 20px; }
 .btn { flex: 1; background-color: #00acc1; color: #fff; border: none; border-radius: 6px; padding: 12px 16px; font-size: 14px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; text-align: center; }
 .btn:hover:enabled { background-color: #008fa1; }
@@ -36,13 +41,42 @@ input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; marg
 var scanPollAttempts = 0;
 
 function onloadPage() {
+  loadSettings(0);
+}
+
+function togglePwd(inputId, btn) {
+  var inp = document.getElementById(inputId);
+  if (!inp) return;
+  if (inp.type === "password") {
+    inp.type = "text";
+    btn.textContent = "Hide";
+  } else {
+    inp.type = "password";
+    btn.textContent = "Show";
+  }
+}
+
+function loadSettings(attempt) {
   var xhr = new XMLHttpRequest();
+  xhr.timeout = 4000;
   xhr.open("GET", "/settingsValues?t=" + Date.now(), true);
   xhr.onload = function () {
-    if (xhr.status === 200) {
+    if (xhr.status === 200 && xhr.responseText && xhr.responseText.indexOf(";") >= 0) {
       fillValues(xhr.responseText);
+      scanWifiNetworks(false);
+    } else if (attempt < 3) {
+      setTimeout(function () { loadSettings(attempt + 1); }, 600);
     }
-    scanWifiNetworks(false);
+  };
+  xhr.onerror = function () {
+    if (attempt < 3) {
+      setTimeout(function () { loadSettings(attempt + 1); }, 600);
+    }
+  };
+  xhr.ontimeout = function () {
+    if (attempt < 3) {
+      setTimeout(function () { loadSettings(attempt + 1); }, 600);
+    }
   };
   xhr.send();
 }
@@ -58,22 +92,14 @@ function scanWifiNetworks(forceRescan) {
   }
   var url = "/scanWifi?t=" + Date.now() + (forceRescan ? "&rescan=1" : "");
   var xhr = new XMLHttpRequest();
+  xhr.timeout = 4000;
   xhr.open("GET", url, true);
   xhr.onload = function () {
     if (xhr.status === 200) {
       try {
         var res = JSON.parse(xhr.responseText);
         if (res.scanning) {
-          scanPollAttempts++;
-          if (scanPollAttempts <= 8) {
-            btn.disabled = true;
-            btn.textContent = "Scanning...";
-            setTimeout(function () { scanWifiNetworks(false); }, 1200);
-          } else {
-            btn.disabled = false;
-            btn.textContent = "Scan";
-            sel.innerHTML = "<option value=''>Scan timed out - tap Scan</option>";
-          }
+          scheduleNextScanPoll(forceRescan ? 1800 : 1200);
           return;
         }
         btn.disabled = false;
@@ -81,7 +107,7 @@ function scanWifiNetworks(forceRescan) {
         var nets = res.networks || [];
         nets.sort(function (a, b) { return b.rssi - a.rssi; });
         var currentSsid = document.getElementById("txt_wifissid").value;
-        var html = "<option value=''>-- Select available Wi-Fi (" + nets.length + " found) --</option>";
+        var html = "<option value=''>-- Available Wi-Fi (" + nets.length + " found) --</option>";
         for (var i = 0; i < nets.length; i++) {
           var s = nets[i].ssid;
           var rssi = nets[i].rssi;
@@ -90,19 +116,34 @@ function scanWifiNetworks(forceRescan) {
         }
         sel.innerHTML = html;
       } catch (e) {
-        btn.disabled = false;
-        btn.textContent = "Scan";
+        scheduleNextScanPoll(1500);
       }
     } else {
-      btn.disabled = false;
-      btn.textContent = "Scan";
+      scheduleNextScanPoll(1500);
     }
   };
   xhr.onerror = function () {
-    btn.disabled = false;
-    btn.textContent = "Scan";
+    scheduleNextScanPoll(1500);
+  };
+  xhr.ontimeout = function () {
+    scheduleNextScanPoll(1500);
   };
   xhr.send();
+}
+
+function scheduleNextScanPoll(delayMs) {
+  var btn = document.getElementById("btnScanWifi");
+  var sel = document.getElementById("sel_wifissid");
+  scanPollAttempts++;
+  if (scanPollAttempts <= 10) {
+    btn.disabled = true;
+    btn.textContent = "Scanning...";
+    setTimeout(function () { scanWifiNetworks(false); }, delayMs);
+  } else {
+    btn.disabled = false;
+    btn.textContent = "Scan";
+    sel.innerHTML = "<option value=''>Tap Scan to retry</option>";
+  }
 }
 
 function onSelectWifi(sel) {
@@ -206,13 +247,21 @@ function saveSettings() {
     <input id="txt_wifissid" type="text" placeholder="Type SSID or choose below" />
     <div class="wifi-scan-row">
       <select id="sel_wifissid" onchange="onSelectWifi(this);">
-        <option value="">-- Select available Wi-Fi --</option>
+        <option value="">-- Available Wi-Fi --</option>
       </select>
       <button type="button" class="btn-scan" id="btnScanWifi" onclick="scanWifiNetworks(true);">Scan</button>
     </div>
   </td>
 </tr>
-<tr><td><label>Wi-Fi Password</label></td><td><input id="txt_wifipassword" type="password" placeholder="No Wi-Fi password set" /></td></tr>
+<tr>
+  <td><label>Wi-Fi Password</label></td>
+  <td>
+    <div class="pwd-row">
+      <input id="txt_wifipassword" type="password" placeholder="No Wi-Fi password set" />
+      <button type="button" class="btn-eye" onclick="togglePwd('txt_wifipassword', this);">Show</button>
+    </div>
+  </td>
+</tr>
 <tr><td><label>Relay 1 GPIO (16)</label></td><td><input id="txt_RelayCompressorPin" type="text" /></td></tr>
 <tr><td><label>Relay 2 GPIO (17)</label></td><td><input id="txt_RelayFreePin" type="text" /></td></tr>
 <tr><td><label>Sensor GPIO (34)</label></td><td><input id="txt_SensorPin" type="text" /></td></tr>
@@ -222,8 +271,25 @@ function saveSettings() {
 <tr><td><label>Sensor Full Scale (PSI)</label></td><td><input id="txt_SensorFullScalePSI" type="number" step="0.1" /></td></tr>
 <tr><td><label>Max Pressure (PSI)</label></td><td><input id="txt_MaxPressurePSI" type="number" step="0.1" /></td></tr>
 <tr><td><label>Max Valve Open (sec)</label></td><td><input id="txt_MaxValveOpenSec" type="number" step="1" /></td></tr>
-<tr><td><label>Hotspot Password</label></td><td><input id="txt_AccessPointPassword" type="password" /></td></tr>
-<tr><td><label>BLE Access Code</label></td><td><input id="txt_AccessCode" type="password" placeholder="No code set (unlocked)" /><label class="inline-check"><input id="chk_ClearAccessCode" type="checkbox" onchange="onClearAccessCodeToggle(this);" /> Clear access code</label></td></tr>
+<tr>
+  <td><label>Hotspot Password</label></td>
+  <td>
+    <div class="pwd-row">
+      <input id="txt_AccessPointPassword" type="password" />
+      <button type="button" class="btn-eye" onclick="togglePwd('txt_AccessPointPassword', this);">Show</button>
+    </div>
+  </td>
+</tr>
+<tr>
+  <td><label>BLE Access Code</label></td>
+  <td>
+    <div class="pwd-row">
+      <input id="txt_AccessCode" type="password" placeholder="No code set (unlocked)" />
+      <button type="button" class="btn-eye" onclick="togglePwd('txt_AccessCode', this);">Show</button>
+    </div>
+    <label class="inline-check"><input id="chk_ClearAccessCode" type="checkbox" onchange="onClearAccessCodeToggle(this);" /> Clear access code</label>
+  </td>
+</tr>
 <tr><td><label>Measure Wait (sec)</label></td><td><input id="txt_MessureWait" type="text" /></td></tr>
 <tr><td><label>Precision (PSI)</label></td><td><input id="txt_Precision" type="text" /></td></tr>
 <tr><td><label>Calculation Method</label></td><td><select id="txt_PressureCalcMethod"><option value="1">Method 1 (ADC)</option><option value="2">Method 2 (Voltage)</option></select></td></tr>
