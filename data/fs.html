@@ -1,104 +1,113 @@
 <!DOCTYPE html>
-<!-- saved from url=(0031)http://192.168.0.160/filesystem -->
 <html lang="en">
-
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="/fs.css" />
-    
-    <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js'></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Files Management</title>
+<link rel="icon" href="data:,">
+<style>
+* { box-sizing: border-box; }
+body { background: #00acc1; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 14px; color: #333; margin: 0; padding: 16px; text-align: center; }
+h1 { color: #fff; font-size: 26px; margin: 12px 0 18px; }
+h3 { color: #333; margin: 20px 0 10px; font-size: 16px; }
+form { background: #fff; max-width: 460px; margin: 0 auto 24px; padding: 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; }
+#file-input { display: block; width: 100%; height: 44px; line-height: 42px; padding: 0 12px; border: 1px dashed #00acc1; border-radius: 6px; margin: 8px 0 14px; font-size: 14px; font-weight: 500; color: #007c91; background: #f4fbfc; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#file-input:hover { background: #e0f7fa; }
+#prgbar { background-color: #e0e0e0; border-radius: 6px; height: 10px; overflow: hidden; margin: 8px 0; }
+#bar { background-color: #00acc1; width: 0; height: 10px; transition: width 0.2s ease; }
+#prg { font-size: 13px; color: #555; font-weight: 500; margin: 6px 0; }
+.btn-row { display: flex; gap: 10px; margin: 12px 0; }
+.btn { flex: 1; background-color: #00acc1; color: #fff; border: none; border-radius: 6px; padding: 12px 14px; font-size: 14px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; text-align: center; }
+.btn:hover:enabled { background-color: #008fa1; }
+.btn:disabled { background-color: #cfd8dc; color: #90a4ae; cursor: default; }
+.btn-action { background-color: #e29425; }
+.btn-action:hover:enabled { background-color: #d68a1d; }
+.btn-secondary { background-color: #607d8b; }
+.btn-secondary:hover { background-color: #455a64; }
+.btndel { border: none; color: #fff; padding: 6px 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; cursor: pointer; border-radius: 4px; background-color: #e53935; }
+.btndel:hover { background-color: #c62828; }
+table { border-collapse: collapse; border: 1px solid #e0e0e0; width: 100%; font-size: 13px; margin-top: 8px; }
+th, td { padding: 8px 10px; border: 1px solid #e0e0e0; text-align: left; }
+th { background: #f1f3f5; font-weight: 600; color: #444; }
+td:first-child, th:first-child, td:nth-child(3), th:nth-child(3), td:nth-child(4), th:nth-child(4) { text-align: center; }
+tr:nth-child(even) { background-color: #f9fafb; }
+.copyright { color: #e0f7fa; font-size: 12px; margin-top: 12px; }
+</style>
 </head>
-
-<body>
-    <title>File manager</title>
-    <h1>File Manager</h1>
-    <form method="POST" action="http://192.168.0.160/filesystem#" enctype="multipart/form-data" id="upload_form">
-        <input type="file" name="update" id="file" onchange="sub(this)" style="display:none">
-        <label id="file-input" for="file"> Choose file...</label>
-        <input type="submit" id="updateBtn" class="btn2" disabled="true" value="Upload file">
-        <input type="button" class="btn" onclick="location.href='/update';" value="Back">
-        <input type="button" class="btn" onclick="location.href='/';" value="Main page">
-        <br>
-        <h4 style="text-align: center;">File system content:</h4>
-        <span id="filelist">%list%</span>
-        <br>
-        <div id="prg" style="display:none">Ready to upload</div>
-        <br>
-        <div id="prgbar" style="display:none">
-            <div id="bar"></div>
-        </div>
-    </form>
-
-    <script>
-
-        function deletef(h) {
-
-            var xhr = new XMLHttpRequest();
-            var fnstring = String("/delete?file=") + h;
-            xhr.open("GET", fnstring, true);
-            console.log(fnstring);
-            xhr.send();
-            setTimeout("location.href = '../filesystem';", 3000);
-        }
-
-        function sub(obj) {
-            var a = obj.value;
-            console.log(a);
-            var fileName = a.replace(/^.*[\\\/]/, '');
-            console.log(fileName);
-
-            document.getElementById('file-input').innerHTML = fileName;
-
-            document.getElementById('updateBtn').disabled = false;
-            document.getElementById('prgbar').style.display = 'block';
-            document.getElementById('prg').style.display = 'block';
-        };
-        $('form').submit(function (e) {
-            document.getElementById('updateBtn').disabled = "disabled";
-            e.preventDefault();
-            var form = $('#upload_form')[0];
-            var data = new FormData(form);
-
-            $.ajax({
-                url: '/doUpload',
-                type: 'POST',
-                data: data,
-                contentType: false,
-                processData: false,
-                xhr: function () {
-                    var xhr = new window.XMLHttpRequest();
-                    xhr.upload.addEventListener('progress', function (evt) {
-                        if (evt.lengthComputable) {
-                            var per = evt.loaded / evt.total;
-                            $('#prg').html('Progress: ' + Math.round(per * 100));
-                            $('#bar').css('width', Math.round(per * 350) + "px");
-                        }
-                    }, false);
-                    return xhr;
-                },
-                success: function (d, s) {
-                    console.log('success!');
-
-
-                    setTimeout("location.href = '../filesystem';", 3000);
-
-                    document.getElementById('prgbar').style.display = 'none';
-                    document.getElementById('prg').style.display = 'none';
-                    $('#prg').html('Ready to upload');
-                    $('#bar').css('width:0px');
-                    document.getElementById('file-input').innerHTML = 'Choose file...';
-                    document.getElementById('updateBtn').disabled = true;
-
-                },
-                error: function (a, b, c) {
-                    alert("Upload error");
-                    setTimeout("location.href = '../filesystem';", 1000);
-                }
-            });
-        });
-
-    </script>
+<body onload="loadFiles();">
+<h1>Files Management</h1>
+<form method="POST" action="/doUpload" enctype="multipart/form-data" id="upload_form" onsubmit="uploadFile(event);">
+<input type="file" name="update" id="file" onchange="sub(this)" style="display:none">
+<label id="file-input" for="file">Choose File...</label>
+<div id="prg" style="display:none">Ready to upload</div>
+<div id="prgbar" style="display:none"><div id="bar"></div></div>
+<div class="btn-row">
+<button type="submit" id="updateBtn" class="btn btn-action" disabled>Upload File</button>
+<button type="button" class="btn btn-secondary" onclick="location.href='/';">Main Page</button>
+</div>
+<h3>File System Content</h3>
+<div id="filelist">Loading...</div>
+</form>
+<div class="copyright">&copy; 2026 Nir Azulay. All rights reserved.</div>
+<script>
+function loadFiles() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/filelist", true);
+  xhr.onload = function () {
+    if (xhr.status === 200) {
+      document.getElementById("filelist").innerHTML = xhr.responseText;
+    }
+  };
+  xhr.send();
+}
+function deletef(h) {
+  if (!confirm("Delete file " + h + "?")) return;
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/delete?file=" + encodeURIComponent(h), true);
+  xhr.onload = function () { loadFiles(); };
+  xhr.send();
+}
+function sub(obj) {
+  var fileName = obj.value.replace(/^.*[\\\/]/, "");
+  document.getElementById("file-input").innerHTML = "Selected: " + fileName;
+  document.getElementById("updateBtn").disabled = false;
+  document.getElementById("prgbar").style.display = "block";
+  document.getElementById("prg").style.display = "block";
+}
+function uploadFile(e) {
+  e.preventDefault();
+  document.getElementById("updateBtn").disabled = true;
+  var form = document.getElementById("upload_form");
+  var data = new FormData(form);
+  var xhr = new XMLHttpRequest();
+  xhr.upload.addEventListener("progress", function (evt) {
+    if (evt.lengthComputable) {
+      var per = evt.loaded / evt.total;
+      document.getElementById("prg").innerHTML = "Uploading: " + Math.round(per * 100) + "%";
+      document.getElementById("bar").style.width = Math.round(per * 100) + "%";
+    }
+  }, false);
+  xhr.onload = function () {
+    if (xhr.status === 200) {
+      document.getElementById("prg").innerHTML = "Upload complete!";
+      setTimeout(function () {
+        document.getElementById("prgbar").style.display = "none";
+        document.getElementById("prg").style.display = "none";
+        document.getElementById("file-input").innerHTML = "Choose File...";
+        loadFiles();
+      }, 1500);
+    } else {
+      alert("Upload error");
+      document.getElementById("updateBtn").disabled = false;
+    }
+  };
+  xhr.onerror = function () {
+    alert("Upload error");
+    document.getElementById("updateBtn").disabled = false;
+  };
+  xhr.open("POST", "/doUpload", true);
+  xhr.send(data);
+}
+</script>
 </body>
-
 </html>

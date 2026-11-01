@@ -39,6 +39,7 @@ float readPressureFromSensor();
 double calculateDelatFactor();
 
 // Settings Functions
+bool normalizeSettings();
 void loadSettingsfile();
 void saveSettingFile();
 void printSettingsFile();

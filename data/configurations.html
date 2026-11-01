@@ -1,199 +1,128 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-  <title>ESP32 Web Server</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" type="text/css" href="/update.css" />
-  <script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
-  <script type="text/javascript" src="configurations.js"></script>
+<meta charset="UTF-8">
+<title>Configurations</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<style>
+* { box-sizing: border-box; }
+body { background: #00acc1; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 14px; color: #333; margin: 0; padding: 16px; text-align: center; }
+h1 { color: #fff; font-size: 26px; margin: 12px 0 18px; }
+form { background: #fff; max-width: 460px; margin: 0 auto 24px; padding: 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: left; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 5px 4px; vertical-align: middle; }
+td:first-child { width: 44%; font-weight: 600; color: #444; }
+input, select { background: #f1f3f5; border: 1px solid #dce1e6; padding: 0 10px; width: 100%; height: 38px; border-radius: 6px; font-size: 14px; color: #222; }
+input:focus, select:focus { outline: none; border-color: #00acc1; background: #fff; }
+input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; margin: 0 6px 0 0; cursor: pointer; }
+.inline-check { display: inline-flex; align-items: center; font-size: 13px; color: #555; margin-top: 6px; cursor: pointer; }
+.btn-row { display: flex; gap: 10px; margin-top: 20px; }
+.btn { flex: 1; background-color: #00acc1; color: #fff; border: none; border-radius: 6px; padding: 12px 16px; font-size: 14px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; text-align: center; }
+.btn:hover { background-color: #008fa1; }
+.btn-secondary { background-color: #607d8b; }
+.btn-secondary:hover { background-color: #455a64; }
+.ver-badge { display: inline-block; background: #e0f7fa; color: #007c91; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 13px; }
+.copyright { color: #e0f7fa; font-size: 12px; margin-top: 12px; }
+</style>
+<script>
+function onloadPage() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/settingsValues", true);
+  xhr.onload = function () {
+    if (xhr.status === 200) {
+      fillValues(xhr.responseText);
+    }
+  };
+  xhr.send();
+}
+function fillValues(values) {
+  var aValues = values.split(";");
+  if (aValues.length < 15) return;
+  document.getElementById("txt_DeviceName").value = aValues[0];
+  document.getElementById("txt_wifissid").value = aValues[1];
+  document.getElementById("txt_wifipassword").value = "";
+  document.getElementById("txt_RelayCompressorPin").value = aValues[3];
+  document.getElementById("txt_RelayFreePin").value = aValues[4];
+  document.getElementById("txt_SensorPin").value = aValues[5];
+  document.getElementById("chk_SimulationMode").checked = (aValues[6] === "1" || aValues[6] === "true");
+  document.getElementById("txt_MaxSecForStatus").value = aValues[7];
+  document.getElementById("txt_SensorValueAt0PSI").value = aValues[8];
+  document.getElementById("txt_SensorValueAt50PSI").value = aValues[9];
+  document.getElementById("txt_AccessCode").value = "";
+  document.getElementById("txt_AccessCode").placeholder = (aValues[10] === "1") ? "Code is SET (leave blank to keep)" : "No code set (unlocked)";
+  document.getElementById("chk_ClearAccessCode").checked = false;
+  document.getElementById("txt_MessureWait").value = aValues[11];
+  document.getElementById("txt_Precision").value = aValues[12];
+  document.getElementById("txt_PressureCalcMethod").value = aValues[13];
+  document.getElementById("lbl_version").innerHTML = aValues[15] || "";
+  document.getElementById("txt_MaxPressurePSI").value = aValues[16] || "50.0";
+  document.getElementById("txt_MaxValveOpenSec").value = aValues[17] || "120";
+  document.getElementById("txt_SensorFullScalePSI").value = aValues[18] || "0.0";
+  document.getElementById("txt_AccessPointPassword").value = aValues[19] || "12345678";
+}
+function saveSettings() {
+  var params = new URLSearchParams({
+    DeviceName: document.getElementById("txt_DeviceName").value,
+    wifissid: document.getElementById("txt_wifissid").value,
+    wifipassword: document.getElementById("txt_wifipassword").value,
+    RelayCompressorPin: document.getElementById("txt_RelayCompressorPin").value,
+    RelayFreePin: document.getElementById("txt_RelayFreePin").value,
+    SensorPin: document.getElementById("txt_SensorPin").value,
+    MaxSecForStatus: document.getElementById("txt_MaxSecForStatus").value,
+    SensorValueAt0PSI: document.getElementById("txt_SensorValueAt0PSI").value,
+    SensorValueAt50PSI: document.getElementById("txt_SensorValueAt50PSI").value,
+    AccessCode: document.getElementById("txt_AccessCode").value,
+    ClearAccessCode: document.getElementById("chk_ClearAccessCode").checked ? "true" : "false",
+    MessureWait: document.getElementById("txt_MessureWait").value,
+    Precision: document.getElementById("txt_Precision").value,
+    PressureCalcMethod: document.getElementById("txt_PressureCalcMethod").value,
+    MaxPressurePSI: document.getElementById("txt_MaxPressurePSI").value,
+    MaxValveOpenSec: document.getElementById("txt_MaxValveOpenSec").value,
+    SensorFullScalePSI: document.getElementById("txt_SensorFullScalePSI").value,
+    AccessPointPassword: document.getElementById("txt_AccessPointPassword").value,
+    SimulationMode: document.getElementById("chk_SimulationMode").checked ? "true" : "false"
+  });
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/updateSettings?" + params.toString(), true);
+  xhr.onload = function () {
+    alert("Settings successfully updated. Device is rebooting...");
+    setTimeout(function () { location.href = "/"; }, 2000);
+  };
+  xhr.send();
+}
+</script>
 </head>
-
-<body onload="{onloadPage();}"">
-  <title>CONFIGURATIONS</title>
-  <h1>Configurations</h1>
-  <form name="settingsForm" id = "settingsForm">
-    <input type="hidden" id="txt_values" value="%STATE%"></input>
-    <table>
-      <tr>
-        <td width="30%">
-          <label>version </label>
-        </td>
-        <td>
-          <label id="lbl_version"></label>
-        </td>
-        <td width="25px"></td>
-      </tr>
-      <tr>
-        <td>
-          <label >DeviceName name</label>
-        </td>
-        <td>
-          <input class="input" id="txt_DeviceName" type="text" />
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label>wifi ssid</label>
-        </td>
-        <td>
-          <input class="input" id="txt_wifissid" type="text" />
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label>wifi password</label>
-        </td>
-        <td>
-          <input class="input" id="txt_wifipassword" type="password" placeholder="Leave blank to keep the saved password" />
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label>Relay 1 GPIO (fixed 16)</label>
-        </td>
-        <td>
-          <input class="input" id="txt_RelayCompressorPin" type="text" />
-        </td>
-      </tr>    
-      <tr>
-        <td>
-          <label>Relay 2 GPIO (fixed 17)</label>
-        </td>
-          
-        <td>
-          <input class="input" id="txt_RelayFreePin" type="text" />
-        </td>
-      </tr>            
-      <tr>
-        <td>
-          <label>Sensor GPIO (34)</label>
-        </td>
-          
-        <td>
-          <input class="input" id="txt_SensorPin" type="text" />
-        </td>
-      </tr> 
-      <tr>
-        <td>
-          <label>Auto Start</label>
-        </td>
-          
-        <td>
-          <!-- <input class="input" id="chk_AutoStart" type="checkbox" /> -->
-        </td>
-      </tr> 
-      <tr>
-        <td>
-          <label>Max Sec For Status</label>
-        </td>
-          
-        <td>
-          <input class="input" id="txt_MaxSecForStatus" type="text" />
-        </td>
-      </tr> 
-      <tr>
-        <td>
-          <label>Sensor Value At 0PSI</label>
-        </td>
-          
-        <td>
-          <input class="input" id="txt_SensorValueAt0PSI" type="number" step="0.001" />
-        </td>
-      </tr> 
-      <tr>
-        <td>
-          <label>Sensor value at full scale</label>
-        </td>
-          
-        <td>
-          <input class="input" id="txt_SensorValueAt50PSI" type="number" step="0.001" />
-        </td>
-      </tr> 
-      <tr>
-        <td>
-          <label>Sensor full scale (PSI)</label>
-        </td>
-        <td>
-          <input class="input" id="txt_SensorFullScalePSI" type="number" step="0.1" />
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label>Max pressure (PSI)</label>
-        </td>
-        <td>
-          <input class="input" id="txt_MaxPressurePSI" type="number" step="0.1" />
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label>Max valve open (sec)</label>
-        </td>
-        <td>
-          <input class="input" id="txt_MaxValveOpenSec" type="number" step="1" />
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label>Access point password</label>
-        </td>
-        <td>
-          <input class="input" id="txt_AccessPointPassword" type="password" />
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <label>Access code</label>
-        </td>
-        <td>
-          <input class="input" id="txt_AccessCode" type="password" placeholder="Leave blank to keep the saved code" />
-          <label><input id="chk_ClearAccessCode" type="checkbox" /> Clear access code</label>
-        </td>
-      </tr>    
-      <tr>
-        <td>
-          <label>Messure Wait in Sec</label>          
-        </td>
-        <td>
-          <input class="input" id="txt_MessureWait" type="text" />
-        </td>
-      </tr>   
-      <tr>
-        <td>
-          <label>Precision</label>
-        </td>          
-        <td>
-          <input class="input" id="txt_Precision" type="text" />
-        </td>
-      </tr>         
-      <tr>
-        <td>
-          <label>Pressure Calculation Method</label>
-        </td>
-        <td>
-          <select class="input" id="txt_PressureCalcMethod">
-            <option value="1">Method 1 (Legacy)</option>
-            <option value="2">Method 2 (New)</option>
-          </select>
-        </td>
-      </tr>         
-      <tr>
-        <td>
-          <label>Simulation Mode</label>
-        </td>          
-        <td>
-          <input class="input" id="chk_SimulationMode" type="checkbox" />
-        </td>
-      </tr>         
-    </table>
-    <tr>
-      <td colspan="2">
-          <input type="button" class="btn" onclick="{saveSettings()};" value = "Save Settings" id="btnSave"/>          
-          <input type="button" class="btn" onclick="location.href='/';" value="Main page"/>
-      </td>
-    </tr>
-  </form>
+<body onload="onloadPage();">
+<h1>Configurations</h1>
+<form name="settingsForm" id="settingsForm">
+<input type="hidden" id="txt_values" value="" />
+<table>
+<tr><td><label>Firmware Version</label></td><td><span id="lbl_version" class="ver-badge">-</span></td></tr>
+<tr><td><label>Device Name</label></td><td><input id="txt_DeviceName" type="text" /></td></tr>
+<tr><td><label>Wi-Fi SSID</label></td><td><input id="txt_wifissid" type="text" /></td></tr>
+<tr><td><label>Wi-Fi Password</label></td><td><input id="txt_wifipassword" type="password" placeholder="Leave blank to keep saved" /></td></tr>
+<tr><td><label>Relay 1 GPIO (16)</label></td><td><input id="txt_RelayCompressorPin" type="text" /></td></tr>
+<tr><td><label>Relay 2 GPIO (17)</label></td><td><input id="txt_RelayFreePin" type="text" /></td></tr>
+<tr><td><label>Sensor GPIO (34)</label></td><td><input id="txt_SensorPin" type="text" /></td></tr>
+<tr><td><label>Max Status Time (sec)</label></td><td><input id="txt_MaxSecForStatus" type="text" /></td></tr>
+<tr><td><label>Sensor At 0 PSI</label></td><td><input id="txt_SensorValueAt0PSI" type="number" step="0.001" /></td></tr>
+<tr><td><label>Sensor At Full Scale</label></td><td><input id="txt_SensorValueAt50PSI" type="number" step="0.001" /></td></tr>
+<tr><td><label>Sensor Full Scale (PSI)</label></td><td><input id="txt_SensorFullScalePSI" type="number" step="0.1" /></td></tr>
+<tr><td><label>Max Pressure (PSI)</label></td><td><input id="txt_MaxPressurePSI" type="number" step="0.1" /></td></tr>
+<tr><td><label>Max Valve Open (sec)</label></td><td><input id="txt_MaxValveOpenSec" type="number" step="1" /></td></tr>
+<tr><td><label>Hotspot Password</label></td><td><input id="txt_AccessPointPassword" type="password" /></td></tr>
+<tr><td><label>BLE Access Code</label></td><td><input id="txt_AccessCode" type="password" placeholder="Leave blank to keep saved" /><label class="inline-check"><input id="chk_ClearAccessCode" type="checkbox" /> Clear access code</label></td></tr>
+<tr><td><label>Measure Wait (sec)</label></td><td><input id="txt_MessureWait" type="text" /></td></tr>
+<tr><td><label>Precision (PSI)</label></td><td><input id="txt_Precision" type="text" /></td></tr>
+<tr><td><label>Calculation Method</label></td><td><select id="txt_PressureCalcMethod"><option value="1">Method 1 (ADC)</option><option value="2">Method 2 (Voltage)</option></select></td></tr>
+<tr><td><label>Simulation Mode</label></td><td><input id="chk_SimulationMode" type="checkbox" /></td></tr>
+</table>
+<div class="btn-row">
+<button type="button" class="btn" onclick="saveSettings();" id="btnSave">Save Settings</button>
+<button type="button" class="btn btn-secondary" onclick="location.href='/';">Main Page</button>
+</div>
+</form>
+<div class="copyright">&copy; 2026 Nir Azulay. All rights reserved.</div>
 </body>
 </html>

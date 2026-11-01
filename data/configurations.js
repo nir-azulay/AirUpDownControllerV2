@@ -1,7 +1,14 @@
 {
     function onloadPage() 
     {
-      fillValues(document.getElementById("txt_values").value);
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", "/settingsValues", true);
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          fillValues(xhr.responseText);
+        }
+      };
+      xhr.send();
     }
 
     function fillValues(values) {
@@ -12,10 +19,12 @@
       document.getElementById("txt_RelayCompressorPin").value = aValues[3];
       document.getElementById("txt_RelayFreePin").value = aValues[4];
       document.getElementById("txt_SensorPin").value = aValues[5];
+      document.getElementById("chk_SimulationMode").checked = (aValues[6] === "1" || aValues[6] === "true");
       document.getElementById("txt_MaxSecForStatus").value = aValues[7];
       document.getElementById("txt_SensorValueAt0PSI").value = aValues[8];
       document.getElementById("txt_SensorValueAt50PSI").value = aValues[9];
       document.getElementById("txt_AccessCode").value = "";
+      document.getElementById("txt_AccessCode").placeholder = (aValues[10] === "1") ? "Code is SET (leave blank to keep)" : "No code set (unlocked)";
       document.getElementById("chk_ClearAccessCode").checked = false;
       document.getElementById("txt_MessureWait").value = aValues[11];  
       document.getElementById("txt_Precision").value = aValues[12];
@@ -47,14 +56,16 @@
       MaxPressurePSI: document.getElementById("txt_MaxPressurePSI").value,
       MaxValveOpenSec: document.getElementById("txt_MaxValveOpenSec").value,
       SensorFullScalePSI: document.getElementById("txt_SensorFullScalePSI").value,
-      AccessPointPassword: document.getElementById("txt_AccessPointPassword").value});
+      AccessPointPassword: document.getElementById("txt_AccessPointPassword").value,
+      SimulationMode: document.getElementById("chk_SimulationMode").checked ? "true" : "false"});
                                       
       var urlwithQS = "/updateSettings?" + params.toString();
       var xhr = new XMLHttpRequest();
-      xhr.open("GET", urlwithQS, false);       
+      xhr.open("GET", urlwithQS, true);
+      xhr.onload = function () {
+        alert("Settings successfully updated. Device is rebooting...");
+        setTimeout(function () { location.href = "/"; }, 2000);
+      };
       xhr.send();
-      console.log('success!');
-      alert("settings Successfully updated");
-      setTimeout("location.href = '../';", 2000);
     }
 }

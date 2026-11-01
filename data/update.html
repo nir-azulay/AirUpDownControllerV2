@@ -1,38 +1,104 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
-
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>עדכון קושחה - בקר לחץ אוויר</title>  
-  <link rel="stylesheet" type="text/css" href="/update.css">
-  <script type="text/javascript" src="update.js"></script>  
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firmware Update</title>
+<link rel="icon" href="data:,">
+<style>
+* { box-sizing: border-box; }
+body { background: #00acc1; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 14px; color: #333; margin: 0; padding: 16px; text-align: center; }
+h1 { color: #fff; font-size: 26px; margin: 12px 0 18px; }
+.card { background: #fff; max-width: 440px; margin: 0 auto 24px; padding: 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+#file-input { display: block; width: 100%; height: 44px; line-height: 42px; padding: 0 12px; border: 1px dashed #00acc1; border-radius: 6px; margin: 8px 0 16px; font-size: 14px; font-weight: 500; color: #007c91; background: #f4fbfc; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#file-input:hover { background: #e0f7fa; }
+.progress-container { margin: 16px 0; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #eee; }
+#prgbar { background-color: #e0e0e0; border-radius: 6px; height: 10px; width: 100%; margin: 8px 0; overflow: hidden; }
+#bar { background-color: #00acc1; width: 0%; height: 100%; transition: width 0.2s ease; }
+#prg { font-size: 13px; color: #555; font-weight: 500; }
+.btn-row { display: flex; gap: 10px; margin-top: 16px; }
+.btn { flex: 1; background-color: #00acc1; color: #fff; border: none; border-radius: 6px; padding: 12px 16px; font-size: 14px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; text-align: center; }
+.btn:hover:enabled { background-color: #008fa1; }
+.btn:disabled { background-color: #cfd8dc; color: #90a4ae; cursor: default; }
+.btn-action { background-color: #e29425; }
+.btn-action:hover:enabled { background-color: #d68a1d; }
+.btn-secondary { background-color: #607d8b; }
+.btn-secondary:hover { background-color: #455a64; }
+.copyright { color: #e0f7fa; font-size: 12px; margin-top: 12px; }
+</style>
+<script>
+function sub(obj) {
+  if (!obj.files || !obj.files[0]) {
+    document.getElementById('file-input').textContent = 'Choose Firmware File (.bin)...';
+    document.getElementById('updateBtn').disabled = true;
+    return;
+  }
+  var fileName = obj.files[0].name;
+  document.getElementById('file-input').textContent = 'Selected: ' + fileName;
+  if (!fileName.toLowerCase().endsWith('.bin')) {
+    document.getElementById('file-input').textContent = 'Error: Please select a .bin file';
+    document.getElementById('updateBtn').disabled = true;
+    return;
+  }
+  document.getElementById('updateBtn').disabled = false;
+  document.getElementById('prg').textContent = 'Ready to upload';
+}
+document.addEventListener('DOMContentLoaded', function() {
+  var form = document.getElementById('upload_form');
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var fileInput = document.getElementById('update');
+    if (!fileInput.files || !fileInput.files[0]) {
+      document.getElementById('prg').textContent = 'Error: No file selected';
+      return;
+    }
+    document.getElementById('updateBtn').disabled = true;
+    document.getElementById('prg').textContent = 'Starting upload...';
+    var formData = new FormData(form);
+    var xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener('progress', function(evt) {
+      if (evt.lengthComputable) {
+        var pct = (evt.loaded / evt.total) * 100;
+        document.getElementById('bar').style.width = pct + '%';
+        document.getElementById('prg').textContent = 'Uploading: ' + Math.round(pct) + '%';
+      }
+    });
+    xhr.addEventListener('load', function() {
+      if (xhr.status === 200) {
+        document.getElementById('prg').textContent = 'Update complete! Rebooting device...';
+        document.getElementById('bar').style.width = '100%';
+        setTimeout(function() { window.location.href = '/'; }, 3000);
+      } else {
+        document.getElementById('prg').textContent = 'Update failed';
+        document.getElementById('updateBtn').disabled = false;
+      }
+    });
+    xhr.addEventListener('error', function() {
+      document.getElementById('prg').textContent = 'Communication error with device';
+      document.getElementById('updateBtn').disabled = false;
+    });
+    xhr.open('POST', '/doUpdate');
+    xhr.send(formData);
+  });
+});
+</script>
 </head>
-
 <body>
-  <div class="container">
-    <h1>עדכון קושחה</h1>
-    <div class="card">
-      <form id="upload_form" method='POST' action='/doUpdate' enctype='multipart/form-data' class="file-upload">
-        <label for="update">בחר קובץ קושחה:</label>
-        <div class="file-input-container">
-          <input type="file" id="update" name="update" accept=".bin" onchange="sub(this)">
-          <div id="file-input">לא נבחר קובץ</div>
-        </div>
-        <div id="error-message" class="error" style="display: none;"></div>
-        <button type="submit" id="updateBtn" disabled>עדכן קושחה</button>
-      </form>
-      
-      <div class="progress-container" id="progress-container">
-        <div id="prgbar">
-          <div id="bar"></div>
-        </div>
-        <div id="prg">מוכן להעלאה</div>
-      </div>
-    </div>
-    <div class="nav-links">
-      <a href="/">חזרה לתפריט</a>
-    </div>
-  </div>
+<h1>Firmware Update</h1>
+<div class="card">
+<form id="upload_form" method="POST" action="/doUpdate" enctype="multipart/form-data">
+<label for="update" id="file-input">Choose Firmware File (.bin)...</label>
+<input type="file" id="update" name="update" accept=".bin" onchange="sub(this)" style="display:none">
+<div class="progress-container" id="progress-container">
+<div id="prgbar"><div id="bar"></div></div>
+<div id="prg">Ready to upload</div>
+</div>
+<div class="btn-row">
+<button type="submit" id="updateBtn" class="btn btn-action" disabled>Update Firmware</button>
+<button type="button" class="btn btn-secondary" onclick="location.href='/';">Main Page</button>
+</div>
+</form>
+</div>
+<div class="copyright">&copy; 2026 Nir Azulay. All rights reserved.</div>
 </body>
 </html>

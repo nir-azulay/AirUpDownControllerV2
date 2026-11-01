@@ -6,11 +6,7 @@
 #include <BLE2902.h>
 
 #include <WiFi.h>
-#include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
-#include <WebServer.h>
 #include <Update.h>
 #include "main.h"
 #include "SPIFFS.h"
@@ -37,14 +33,7 @@ AsyncWebServer server(80);
 size_t content_len;
 File file;
 bool opened = false;
-
-WiFiClientSecure client;
 #pragma endregion webServer declaration
-
-#pragma region WiFi declaration
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", 3 * 60 * 60);
-#pragma endregion WiFi declaration
 
 // Global variables
 float currentPressure = 0;
@@ -200,9 +189,8 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
 
     if (final)
     {
-        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "Ok");
-        response->addHeader("Refresh", "30");
-        response->addHeader("Location", "/");
+        AsyncResponseStream *response = request->beginResponseStream("text/plain");
+        response->print("Ok");
         request->send(response);
         if (!Update.end(true))
         {
@@ -212,7 +200,7 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
         {
             Serial.println("Update complete");
             Serial.flush();
-            ESP.restart();
+            scheduleRestart(1000);
         }
     }
     upgradeInProgress=false;
@@ -245,16 +233,14 @@ void handleDoUpload(AsyncWebServerRequest *request, String filename, size_t inde
 
     if (final)
     {
-
-        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "Ok");
-        response->addHeader("Refresh", "20");
-        response->addHeader("Location", "/filesystem");
-        request->send(response);
         file.close();
         opened = false;
         Serial.println("---------------");
         Serial.println("Upload complete");
         listDir(SPIFFS, "/", 0);
+        AsyncResponseStream *response = request->beginResponseStream("text/plain");
+        response->print("Ok");
+        request->send(response);
     }
 }
 
@@ -305,8 +291,6 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
 
         if (file.isDirectory())
         {
-            //  Serial.print("  DIR : ");
-            // Serial.println(file.name());
             if (levels)
             {
                 listDir(fs, file.name(), levels - 1);
@@ -314,16 +298,16 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
         }
         else
         {
-
             i++;
             String st_after_symb = String(file.name()).substring(String(file.name()).indexOf("/") + 1);
 
-            partlist += String("<tr><td>") + String(i) + String("</td><td>") + String("<a href='") + String(file.name()) + String("'>") + st_after_symb + String("</td><td>") + String(file.size() / 1024) + String("</td><td>") + String("<input type='button' class='btndel' onclick=\"deletef('") + String(file.name()) + String("')\" value='X'>") + String("</td></tr>");
-            filelist = String("<table><tbody><tr><th>#</th><th>File name</th><th>Size(KB)</th><th></th></tr>") + partlist + String(" </tbody></table>");
+            partlist += String("<tr><td>") + String(i) + String("</td><td>") + st_after_symb + String("</td><td>") + String(file.size() / 1024) + String("</td><td><button type='button' class='btndel' onclick=\"deletef('") + String(file.name()) + String("')\">Delete</button></td></tr>");
         }
+        file.close();
         file = root.openNextFile();
     }
-    filelist = String("<table><tbody><tr><th>#</th><th>File name</th><th>Size(KB)</th><th></th></tr>") + partlist + String(" </tbody></table>");
+    root.close();
+    filelist = String("<table><tbody><tr><th>#</th><th>File Name</th><th>Size (KB)</th><th>Action</th></tr>") + partlist + String("</tbody></table>");
 }
 
 void deleteFile(fs::FS &fs, const String &path)
@@ -344,7 +328,8 @@ void deleteFile(fs::FS &fs, const String &path)
 String getSettingsParams(const String &var)
 {
     Serial.println(var);
-    String status = settings.DeviceName + ";" + settings.wifissid + ";;" + String(settings.RelayCompressorPin) + ";" + String(settings.RelayFreePin) + ";" + String(settings.SensorPin) + ";" + String(settings.SimulationMode) + ";" + String(settings.MaxSecForStatus) + ";" + String(settings.SensorValueAt0PSI, 3) + ";" + String(settings.SensorValueAt50PSI, 3) + ";;" + String(settings.MessureWait) + ";" + String(settings.Precision) + ";" + String(settings.PressureCalcMethod) + ";0;" + VERSION_SHORT + ";" + String(settings.MaxPressurePSI, 1) + ";" + String(settings.MaxValveOpenSec) + ";" + String(settings.SensorFullScalePSI, 1) + ";" + settings.AccessPointPassword;
+    String hasCode = settings.AccessCode.length() > 0 ? "1" : "0";
+    String status = settings.DeviceName + ";" + settings.wifissid + ";;" + String(settings.RelayCompressorPin) + ";" + String(settings.RelayFreePin) + ";" + String(settings.SensorPin) + ";" + String(settings.SimulationMode) + ";" + String(settings.MaxSecForStatus) + ";" + String(settings.SensorValueAt0PSI, 3) + ";" + String(settings.SensorValueAt50PSI, 3) + ";" + hasCode + ";" + String(settings.MessureWait) + ";" + String(settings.Precision) + ";" + String(settings.PressureCalcMethod) + ";0;" + VERSION_SHORT + ";" + String(settings.MaxPressurePSI, 1) + ";" + String(settings.MaxValveOpenSec) + ";" + String(settings.SensorFullScalePSI, 1) + ";" + settings.AccessPointPassword;
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -406,7 +391,12 @@ String getSettingsJSON()
     JSON += "'Software_VER': '" + String(VERSION_SHORT) + "',";
     JSON += "'IP': '" + currentIP + "',";    
     JSON += "'SimulationMode': '" + String(isSimulationMode) + "',";
-    JSON += "'PressureCalcMethod': '" + String(settings.PressureCalcMethod) + "'";
+    JSON += "'PressureCalcMethod': '" + String(settings.PressureCalcMethod) + "',";
+    JSON += "'SensorFullScalePSI': '" + String(settings.SensorFullScalePSI, 1) + "',";
+    JSON += "'MaxPressurePSI': '" + String(settings.MaxPressurePSI, 1) + "',";
+    JSON += "'MaxValveOpenSec': '" + String(settings.MaxValveOpenSec) + "',";
+    JSON += "'AccessPointPassword': '" + settings.AccessPointPassword + "',";
+    JSON += "'HasAccessCode': '" + String(settings.AccessCode.length() > 0 ? 1 : 0) + "'";
     JSON += "}";
 
     return JSON;
@@ -530,10 +520,10 @@ void saveSettings(AsyncWebServerRequest *request)
     }
 
 
+    normalizeSettings();
     saveSettingFile();
-    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "Ok");
-    response->addHeader("Refresh", "30");
-    response->addHeader("Location", "/");
+    AsyncResponseStream *response = request->beginResponseStream("text/plain");
+    response->print("Ok");
     request->send(response);
 
     Serial.println("Update complete");
@@ -570,7 +560,7 @@ void setupWebServer()
               { request->send(SPIFFS, "/update.js", "text/javascript"); });
 
     server.on("/filesystem", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/fs.html", String(), false, processor_update); });
+              { request->send(SPIFFS, "/fs.html", "text/html"); });
 
     server.on("/fs.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/fs.css", "text/css"); });
@@ -579,10 +569,21 @@ void setupWebServer()
               { request->send(SPIFFS, "/fs.js", "text/javascript"); });
 
     server.on("/filelist", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send_P(200, "text/plain", filelist.c_str()); });
+              {
+                  AsyncResponseStream *response = request->beginResponseStream("text/html");
+                  response->print(filelist);
+                  request->send(response);
+              });
 
     server.on("/configurations", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/configurations.html", String(), false, getSettingsParams); });
+              { request->send(SPIFFS, "/configurations.html", "text/html"); });
+
+    server.on("/settingsValues", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+                  AsyncResponseStream *response = request->beginResponseStream("text/plain");
+                  response->print(getSettingsParams("STATE"));
+                  request->send(response);
+              });
 
     server.on("/configurations.css", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/configurations.css", "text/css"); });
@@ -590,14 +591,20 @@ void setupWebServer()
     server.on("/configurations.js", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/configurations.js", "text/javascript"); });
 
+    server.on("/about", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/about.html", "text/html"); });
+
+    server.on("/profile.jpg", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/profile.jpg", "image/jpeg"); });
+
     server.on("/updateSettings", HTTP_GET, [](AsyncWebServerRequest *request)
-              {   
-    request->send(200, "text/plain", "OK");
-    saveSettings(request); });
+              { saveSettings(request); });
 
     server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request)
               {
-    request->send(200, "text/html", "<HTML><BODY><script>setTimeout(function() { window.location.href = '/'; }, 2000);</script>Device will reboot in 2 seconds </BODY></HTML>");
+    AsyncResponseStream *response = request->beginResponseStream("text/html");
+    response->print("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>Rebooting</title><style>body{background:#00acc1;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#333;text-align:center;margin:0;padding:20px;}.card{background:#fff;max-width:420px;margin:40px auto 16px;padding:30px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);}h2{color:#00acc1;margin-top:0;}.btn{background:#00acc1;color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:14px;font-weight:600;text-transform:uppercase;cursor:pointer;margin-top:16px;}.copyright{color:#e0f7fa;font-size:12px;margin-top:12px;}</style><script>setTimeout(function(){window.location.href='/';},3000);</script></head><body><div class='card'><h2>Rebooting Device</h2><p>Device will reboot in 2 seconds...</p><button type='button' class='btn' onclick=\"location.href='/'\">Main Page</button></div><div class='copyright'>&copy; 2026 Nir Azulay. All rights reserved.</div></body></html>");
+    request->send(response);
     
     // שימוש בפונקציה החדשה לתזמון אתחול מחדש
     scheduleRestart(1000);
@@ -640,7 +647,9 @@ void setupWebServer()
       inputMessage = "No message sent";
       inputParam = "none";
     }
-    request->send(200, "text/plain", "OK"); });
+    AsyncResponseStream *response = request->beginResponseStream("text/plain");
+    response->print("OK");
+    request->send(response); });
 
     server.onNotFound(notFound);
     server.begin();
@@ -658,14 +667,18 @@ void setupWiFi()
     int maxRetry = 2;
     int retryCounter = 0;
 
-    WiFi.begin(settings.wifissid.c_str(), settings.wifipassword.c_str());
-    while (WiFi.status() != WL_CONNECTED && retryCounter < maxRetry)
+    if (settings.wifissid.length() > 0)
     {
-        delay(2000);
-        Serial.println("Connecting to WiFi..");
-        retryCounter++;
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(settings.wifissid.c_str(), settings.wifipassword.c_str());
+        while (WiFi.status() != WL_CONNECTED && retryCounter < maxRetry)
+        {
+            delay(2000);
+            Serial.println("Connecting to WiFi..");
+            retryCounter++;
+        }
     }
-    if (WiFi.status() == WL_CONNECTED)
+    if (settings.wifissid.length() > 0 && WiFi.status() == WL_CONNECTED)
     {
 
         Serial.println("Connected to the WiFi network");
@@ -676,17 +689,12 @@ void setupWiFi()
         IPAddress IP = WiFi.localIP();
         Serial.println(IP.toString());
         currentIP = IP.toString();
-        /*
-            tft.setCursor(1, 140);
-            tft.println("IP Adresss:");
-            tft.setTextColor(ILI9341_GREENYELLOW);
-            tft.println(WiFi.localIP());
-         */
         wifiInitialized = true;
     }
     else
     {
-
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_AP);
         WiFi.softAP(settings.DeviceName.c_str(), settings.AccessPointPassword.c_str());
         IPAddress IP = WiFi.softAPIP();
         Serial.println("");
@@ -712,6 +720,134 @@ void restart()
     }
 }
 
+static bool isKnownSettingKey(const char *key)
+{
+    static const char *const kKnownKeys[] = {
+        "DeviceName",
+        "wifissid",
+        "wifipassword",
+        "RelayCompressorPin",
+        "RelayFreePin",
+        "SensorPin",
+        "MaxSecForStatus",
+        "SensorValueAt0PSI",
+        "SensorValueAt50PSI",
+        "AccessCode",
+        "MessureWait",
+        "Precision",
+        "SimulationMode",
+        "PressureCalcMethod",
+        "MaxPressurePSI",
+        "MaxValveOpenSec",
+        "SensorFullScalePSI",
+        "AccessPointPassword"
+    };
+    const size_t count = sizeof(kKnownKeys) / sizeof(kKnownKeys[0]);
+    for (size_t i = 0; i < count; i++) {
+        if (strcmp(key, kKnownKeys[i]) == 0)
+            return true;
+    }
+    return false;
+}
+
+// Runtime validation and auto-repair of in-memory settings.
+// Returns true if any field was out-of-range/inconsistent and was corrected.
+bool normalizeSettings()
+{
+    bool fixed = false;
+
+    settings.DeviceName.trim();
+    if (settings.DeviceName.length() == 0 || settings.DeviceName.length() > 32 || settings.DeviceName.indexOf(';') >= 0) {
+        settings.DeviceName = "esp32-AirUpDownController";
+        fixed = true;
+    }
+
+    if (settings.RelayCompressorPin <= 0 || settings.RelayCompressorPin > 39) {
+        settings.RelayCompressorPin = 16;
+        fixed = true;
+    }
+
+    if (settings.RelayFreePin <= 0 || settings.RelayFreePin > 39 || settings.RelayFreePin == settings.RelayCompressorPin) {
+        settings.RelayFreePin = 17;
+        fixed = true;
+    }
+
+    // SensorPin must be on ADC1 (GPIO 32..39) because ADC2 cannot be used with Wi-Fi
+    if (settings.SensorPin < 32 || settings.SensorPin > 39) {
+        LOG_WARNING("SETTINGS", "Invalid or ADC2 SensorPin (" + String(settings.SensorPin) + "), auto-fixing to GPIO34");
+        settings.SensorPin = 34;
+        fixed = true;
+    }
+
+    if (settings.MaxSecForStatus < 1 || settings.MaxSecForStatus > 300) {
+        settings.MaxSecForStatus = 10;
+        fixed = true;
+    }
+
+    if (isnan(settings.SensorValueAt0PSI) || isnan(settings.SensorValueAt50PSI) ||
+        settings.SensorValueAt0PSI < 0.0f || settings.SensorValueAt50PSI <= 0.0f ||
+        settings.SensorValueAt50PSI == settings.SensorValueAt0PSI) {
+        settings.SensorValueAt0PSI = 410.0f;
+        settings.SensorValueAt50PSI = 3400.0f;
+        fixed = true;
+    }
+
+    if (settings.AccessCode.length() > 32) {
+        settings.AccessCode = settings.AccessCode.substring(0, 32);
+        fixed = true;
+    }
+
+    if (isnan(settings.MessureWait) || settings.MessureWait < 0.2 || settings.MessureWait > 60.0) {
+        settings.MessureWait = 1.0;
+        fixed = true;
+    }
+
+    if (isnan(settings.Precision) || settings.Precision < 0.1 || settings.Precision > 10.0) {
+        settings.Precision = 0.5;
+        fixed = true;
+    }
+
+    if (settings.PressureCalcMethod != 1 && settings.PressureCalcMethod != 2) {
+        settings.PressureCalcMethod = 1;
+        fixed = true;
+    }
+
+    // Auto-align PressureCalcMethod with calibration value scale (ADC counts > 3.3 vs Voltage <= 3.3V)
+    if (settings.PressureCalcMethod == 2 && settings.SensorValueAt50PSI > 3.3f) {
+        LOG_WARNING("SETTINGS", "SensorValueAt50PSI is in ADC counts (>3.3), switching PressureCalcMethod to 1");
+        settings.PressureCalcMethod = 1;
+        fixed = true;
+    } else if (settings.PressureCalcMethod == 1 && settings.SensorValueAt50PSI <= 3.3f) {
+        LOG_WARNING("SETTINGS", "SensorValueAt50PSI is in Volts (<=3.3), switching PressureCalcMethod to 2");
+        settings.PressureCalcMethod = 2;
+        fixed = true;
+    }
+
+    if (isnan(settings.MaxPressurePSI) || settings.MaxPressurePSI <= 0.0f || settings.MaxPressurePSI > 200.0f) {
+        settings.MaxPressurePSI = 50.0f;
+        fixed = true;
+    }
+
+    if (settings.MaxValveOpenSec < 10 || settings.MaxValveOpenSec > 3600) {
+        settings.MaxValveOpenSec = 120;
+        fixed = true;
+    }
+
+    if (isnan(settings.SensorFullScalePSI) || settings.SensorFullScalePSI <= 0.0f || settings.SensorFullScalePSI > 300.0f) {
+        settings.SensorFullScalePSI = 50.0f;
+        fixed = true;
+    }
+
+    if (settings.AccessPointPassword.length() < 8 || settings.AccessPointPassword.length() > 63 ||
+        settings.AccessPointPassword.indexOf(';') >= 0) {
+        settings.AccessPointPassword = "12345678";
+        fixed = true;
+    }
+
+    isSimulationMode = settings.SimulationMode;
+    return fixed;
+}
+
 // setup settings file
 void loadSettingsfile()
 {
@@ -721,78 +857,124 @@ void loadSettingsfile()
         return;
     }
 
-    File file = SPIFFS.open("/settings.json");
-    if (!file)
-    {
-        Serial.println("Failed to open file for reading");
-        return;
-    }
-
     StaticJsonDocument<2048> doc;
+    bool needsRepair = false;
+    bool parsedOk = false;
 
-    // Deserialize the JSON document
-    DeserializationError error = deserializeJson(doc, file);
-    if (error) {
-        Serial.println(F("Failed to read file, using default settings"));
-        file.close();
+    if (SPIFFS.exists("/settings.json")) {
+        File file = SPIFFS.open("/settings.json", FILE_READ);
+        if (file) {
+            DeserializationError error = deserializeJson(doc, file);
+            file.close();
+            if (!error && doc.is<JsonObject>()) {
+                parsedOk = true;
+            } else {
+                LOG_WARNING("SETTINGS", "Corrupted /settings.json (" + String(error.c_str()) + "), attempting recovery");
+            }
+        }
+    }
+
+    if (!parsedOk && SPIFFS.exists("/settings.json.bak")) {
+        File bak = SPIFFS.open("/settings.json.bak", FILE_READ);
+        if (bak) {
+            DeserializationError error = deserializeJson(doc, bak);
+            bak.close();
+            if (!error && doc.is<JsonObject>()) {
+                LOG_WARNING("SETTINGS", "Recovered settings from /settings.json.bak");
+                parsedOk = true;
+                needsRepair = true;
+            }
+        }
+    }
+
+    if (!parsedOk) {
+        LOG_WARNING("SETTINGS", "No valid settings file found, writing default /settings.json");
+        normalizeSettings();
+        saveSettingFile();
         return;
     }
 
-    // Copy values from the JsonDocument to the Config
-    settings.DeviceName = doc["DeviceName"].as<String>();
-    settings.wifissid = doc["wifissid"].as<String>();
-    settings.wifipassword = doc["wifipassword"].as<String>();
-    settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
-    settings.RelayFreePin = doc["RelayFreePin"].as<int>();
-    settings.SensorPin = doc["SensorPin"].as<int>();
-    settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
-    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
-    
-    // Debug: Print loaded sensor values
+    JsonObject obj = doc.as<JsonObject>();
+
+    // Check for extra / deprecated keys in the JSON file
+    for (JsonPair kv : obj) {
+        if (!isKnownSettingKey(kv.key().c_str())) {
+            LOG_WARNING("SETTINGS", String("Removing unknown/deprecated setting key: ") + kv.key().c_str());
+            needsRepair = true;
+        }
+    }
+
+    // Migrate legacy BTPinCode if AccessCode was not yet present and BLESecurityEnabled was true
+    if (!obj.containsKey("AccessCode") && obj.containsKey("BTPinCode") && obj["BLESecurityEnabled"].as<bool>()) {
+        settings.AccessCode = obj["BTPinCode"].as<String>();
+        needsRepair = true;
+    }
+
+    // Check if any required key is missing and load present values
+    static const char *const kRequiredKeys[] = {
+        "DeviceName", "wifissid", "wifipassword", "RelayCompressorPin",
+        "RelayFreePin", "SensorPin", "MaxSecForStatus", "SensorValueAt0PSI",
+        "SensorValueAt50PSI", "AccessCode", "MessureWait", "Precision",
+        "SimulationMode", "PressureCalcMethod", "MaxPressurePSI",
+        "MaxValveOpenSec", "SensorFullScalePSI", "AccessPointPassword"
+    };
+    for (size_t i = 0; i < sizeof(kRequiredKeys) / sizeof(kRequiredKeys[0]); i++) {
+        if (!obj.containsKey(kRequiredKeys[i])) {
+            LOG_WARNING("SETTINGS", String("Missing setting key '") + kRequiredKeys[i] + "', filling default");
+            needsRepair = true;
+        }
+    }
+
+    if (obj.containsKey("DeviceName") && obj["DeviceName"].is<const char*>())
+        settings.DeviceName = obj["DeviceName"].as<String>();
+    if (obj.containsKey("wifissid") && obj["wifissid"].is<const char*>())
+        settings.wifissid = obj["wifissid"].as<String>();
+    if (obj.containsKey("wifipassword") && obj["wifipassword"].is<const char*>())
+        settings.wifipassword = obj["wifipassword"].as<String>();
+    if (obj.containsKey("RelayCompressorPin"))
+        settings.RelayCompressorPin = obj["RelayCompressorPin"].as<int>();
+    if (obj.containsKey("RelayFreePin"))
+        settings.RelayFreePin = obj["RelayFreePin"].as<int>();
+    if (obj.containsKey("SensorPin"))
+        settings.SensorPin = obj["SensorPin"].as<int>();
+    if (obj.containsKey("MaxSecForStatus"))
+        settings.MaxSecForStatus = obj["MaxSecForStatus"].as<int>();
+    if (obj.containsKey("SensorValueAt0PSI"))
+        settings.SensorValueAt0PSI = obj["SensorValueAt0PSI"].as<float>();
+    if (obj.containsKey("SensorValueAt50PSI"))
+        settings.SensorValueAt50PSI = obj["SensorValueAt50PSI"].as<float>();
+    if (obj.containsKey("AccessCode") && obj["AccessCode"].is<const char*>())
+        settings.AccessCode = obj["AccessCode"].as<String>();
+    if (obj.containsKey("MessureWait"))
+        settings.MessureWait = obj["MessureWait"].as<double>();
+    if (obj.containsKey("Precision"))
+        settings.Precision = obj["Precision"].as<double>();
+    if (obj.containsKey("SimulationMode"))
+        settings.SimulationMode = obj["SimulationMode"].as<bool>();
+    if (obj.containsKey("PressureCalcMethod"))
+        settings.PressureCalcMethod = obj["PressureCalcMethod"].as<int>();
+    if (obj.containsKey("MaxPressurePSI"))
+        settings.MaxPressurePSI = obj["MaxPressurePSI"].as<float>();
+    if (obj.containsKey("MaxValveOpenSec"))
+        settings.MaxValveOpenSec = obj["MaxValveOpenSec"].as<int>();
+    if (obj.containsKey("SensorFullScalePSI"))
+        settings.SensorFullScalePSI = obj["SensorFullScalePSI"].as<float>();
+    if (obj.containsKey("AccessPointPassword") && obj["AccessPointPassword"].is<const char*>())
+        settings.AccessPointPassword = obj["AccessPointPassword"].as<String>();
+
+    if (normalizeSettings()) {
+        needsRepair = true;
+    }
+
     Serial.println("DEBUG: Loaded SensorValueAt0PSI: " + String(settings.SensorValueAt0PSI, 3));
     Serial.println("DEBUG: Loaded SensorValueAt50PSI: " + String(settings.SensorValueAt50PSI, 3));
-    
-    if (doc.containsKey("AccessCode"))
-        settings.AccessCode = doc["AccessCode"].as<String>();
-    settings.MessureWait = doc["MessureWait"].as<double>();
-    settings.Precision = doc["Precision"].as<double>();
-    
-    // Load simulation mode setting if it exists
-    if (doc.containsKey("SimulationMode")) {
-        settings.SimulationMode = doc["SimulationMode"].as<bool>();
-        isSimulationMode = settings.SimulationMode;
-        LOG_INFO("SETTINGS", "Loaded simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
-    }
-    
-    // Load PressureCalcMethod if it exists
-    if (doc.containsKey("PressureCalcMethod")) {
-        settings.PressureCalcMethod = doc["PressureCalcMethod"].as<int>();
-        LOG_INFO("SETTINGS", "Loaded PressureCalcMethod: " + String(settings.PressureCalcMethod));
-    }
-    
-    if (doc.containsKey("MaxPressurePSI") && doc["MaxPressurePSI"].as<float>() > 0)
-        settings.MaxPressurePSI = doc["MaxPressurePSI"].as<float>();
-    if (doc.containsKey("MaxValveOpenSec") && doc["MaxValveOpenSec"].as<int>() >= 10)
-        settings.MaxValveOpenSec = doc["MaxValveOpenSec"].as<int>();
-    if (doc.containsKey("SensorFullScalePSI"))
-        settings.SensorFullScalePSI = doc["SensorFullScalePSI"].as<float>();
-    if (doc.containsKey("AccessPointPassword")) {
-        String apPassword = doc["AccessPointPassword"].as<String>();
-        if (apPassword.length() >= 8)
-            settings.AccessPointPassword = apPassword;
-    }
-    bool sensorPinMigrated = false;
-    if (settings.SensorPin == 27) {
-        settings.SensorPin = 34;
-        sensorPinMigrated = true;
-        LOG_WARNING("SETTINGS", "Sensor pin 27 is ADC2. Using GPIO34 instead.");
-    }
-    
-    // Close the file (Curiously, File's destructor doesn't close the file)
-    file.close();
-    if (sensorPinMigrated)
+    LOG_INFO("SETTINGS", "Loaded simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
+    LOG_INFO("SETTINGS", "Loaded PressureCalcMethod: " + String(settings.PressureCalcMethod));
+
+    if (needsRepair) {
+        LOG_INFO("SETTINGS", "Auto-fixing settings.json at runtime and saving clean configuration");
         saveSettingFile();
+    }
 }
 
 void saveSettingFile()
@@ -943,7 +1125,6 @@ void setup()
     
     LOG_INFO("WEB", "Setting up web server");
     setupWebServer();
-    client.setInsecure(); // skip verification
     
     LOG_DEBUG("SYSTEM", "Setup running on core " + String(xPortGetCoreID()));
     
@@ -984,9 +1165,16 @@ void BLESync()
                 pCharacteristic->notify();
             } else {
                 LOG_INFO("BLE", "First connection - access code required");
+                BLEBufferValue = "";
                 pCharacteristic->setValue("{\"type\":\"auth\",\"ok\":false,\"required\":true}");
                 pCharacteristic->notify();
+                return;
             }
+        }
+
+        if (settings.AccessCode.length() > 0 && !bleAuthorized) {
+            BLEBufferValue = "";
+            return;
         }
 
         if (BLEBufferValue.length() > 0) {
@@ -1540,23 +1728,55 @@ void handleStartCommand(DynamicJsonDocument &doc) {
 
 void handleSettingsCommand(DynamicJsonDocument &doc) {
     LOG_INFO("BLE", "Settings update command received");
-    settings.DeviceName = doc["DeviceName"].as<String>();
-    settings.wifissid = doc["wifissid"].as<String>();
-    settings.wifipassword = doc["wifipassword"].as<String>();
-    settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
-    settings.RelayFreePin = doc["RelayFreePin"].as<int>();
-    settings.SensorPin = doc["SensorPin"].as<int>();
-    settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
-    settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
-    settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
+    if (doc.containsKey("DeviceName") && doc["DeviceName"].is<const char*>())
+        settings.DeviceName = doc["DeviceName"].as<String>();
+    if (doc.containsKey("wifissid") && doc["wifissid"].is<const char*>())
+        settings.wifissid = doc["wifissid"].as<String>();
+    if (doc.containsKey("wifipassword") && doc["wifipassword"].is<const char*>()) {
+        String pwd = doc["wifipassword"].as<String>();
+        if (pwd.length() > 0)
+            settings.wifipassword = pwd;
+    }
+    if (doc.containsKey("RelayCompressorPin"))
+        settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
+    if (doc.containsKey("RelayFreePin"))
+        settings.RelayFreePin = doc["RelayFreePin"].as<int>();
+    if (doc.containsKey("SensorPin"))
+        settings.SensorPin = doc["SensorPin"].as<int>();
+    if (doc.containsKey("MaxSecForStatus"))
+        settings.MaxSecForStatus = doc["MaxSecForStatus"].as<int>();
+    if (doc.containsKey("SensorValueAt0PSI"))
+        settings.SensorValueAt0PSI = doc["SensorValueAt0PSI"].as<float>();
+    if (doc.containsKey("SensorValueAt50PSI"))
+        settings.SensorValueAt50PSI = doc["SensorValueAt50PSI"].as<float>();
     
     // Debug: Print the received sensor values
     Serial.println("DEBUG: Received SensorValueAt0PSI: " + String(settings.SensorValueAt0PSI, 3));
     Serial.println("DEBUG: Received SensorValueAt50PSI: " + String(settings.SensorValueAt50PSI, 3));
-    settings.MessureWait = doc["MessureWait"].as<double>();
-    settings.Precision = doc["Precision"].as<double>();
+    if (doc.containsKey("MessureWait"))
+        settings.MessureWait = doc["MessureWait"].as<double>();
+    if (doc.containsKey("Precision"))
+        settings.Precision = doc["Precision"].as<double>();
     if (doc.containsKey("PressureCalcMethod"))
         settings.PressureCalcMethod = doc["PressureCalcMethod"].as<int>();
+    if (doc.containsKey("SensorFullScalePSI"))
+        settings.SensorFullScalePSI = doc["SensorFullScalePSI"].as<float>();
+    if (doc.containsKey("MaxPressurePSI"))
+        settings.MaxPressurePSI = doc["MaxPressurePSI"].as<float>();
+    if (doc.containsKey("MaxValveOpenSec"))
+        settings.MaxValveOpenSec = doc["MaxValveOpenSec"].as<int>();
+    if (doc.containsKey("AccessPointPassword") && doc["AccessPointPassword"].is<const char*>()) {
+        String apPwd = doc["AccessPointPassword"].as<String>();
+        if (apPwd.length() >= 8 && apPwd.indexOf(';') < 0)
+            settings.AccessPointPassword = apPwd;
+    }
+    if (doc.containsKey("ClearAccessCode") && (doc["ClearAccessCode"].as<bool>() || doc["ClearAccessCode"].as<String>() == "true" || doc["ClearAccessCode"].as<String>() == "1")) {
+        settings.AccessCode = "";
+    } else if (doc.containsKey("AccessCode") && doc["AccessCode"].is<const char*>()) {
+        String code = doc["AccessCode"].as<String>();
+        if (code.length() > 0)
+            settings.AccessCode = code;
+    }
 
     // Check if SimulationMode is included in the settings update
     if (doc.containsKey("SimulationMode")) {
@@ -1570,6 +1790,7 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
         }
     }
     
+    normalizeSettings();
     LOG_INFO("BLE", "Saving settings and restarting");
     saveSettingFile();
     ESP.restart();

@@ -21,6 +21,6 @@ DeviceSettings settings = {
     1,                            // PressureCalcMethod (default to 1)
     50.0f,                        // MaxPressurePSI
     120,                          // MaxValveOpenSec
-    0.0f,                         // SensorFullScalePSI (enter the stamp on the configuration page)
+    50.0f,                        // SensorFullScalePSI
     "12345678"                    // AccessPointPassword
 }; 
