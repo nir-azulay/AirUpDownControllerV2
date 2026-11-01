@@ -1,0 +1,44 @@
+versioning
+  s_d312b23a5c97c7::t_4b359566d63d41 1
+buildscript_versioning.py
+  s_d312b23a5c97c7::t_224ad3899b47ab 6
+src/main.cpp
+  s_d312b23a5c97c7::t_9b33cf789de32a 607-608,611-612
+  s_d312b23a5c97c7::t_e1a0b2c1881f66 1878-1881
+  s_d312b23a5c97c7::t_4448ce5260d336 25-26
+  s_d312b23a5c97c7::t_8f5140f20bb5e8 1603,1623
+  s_d312b23a5c97c7::t_65316dd5cfd8f9 1801
+  s_d312b23a5c97c7::t_aa9b17c84a90f7 24
+  s_d312b23a5c97c7::t_bf0478d22bd49a 2064-2065
+  s_d312b23a5c97c7::t_1e1c076de22005 207
+  s_d312b23a5c97c7::t_2b406c65f867da 1556,1560
+  s_d312b23a5c97c7::t_459f6d46d1882e 1268-1311
+  s_d312b23a5c97c7::t_191b2c325e3b56 730
+  s_d312b23a5c97c7::t_e2bc1cdaa3d35a 2051-2063,2066-2067
+  s_d312b23a5c97c7::t_c684e360608814 1383-1392
+  s_d312b23a5c97c7::t_7da0786c0391e1 1393-1399
+data/configurations.html
+  s_d312b23a5c97c7::t_3d62ebcae264e3 265-267
+include/settings.h
+  s_d312b23a5c97c7::t_f953a0e8f39576 44-45
+include/version.h
+  s_d312b23a5c97c7::t_4b359566d63d41 3,6,9
+src/settings.cpp
+  s_d312b23a5c97c7::t_6e0874ce597901 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "25c1f19f6b07dc5dbf1afe2491afc3477a622b6b",
+  "prompts": {},
+  "sessions": {
+    "s_d312b23a5c97c7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4073ab5b-854e-4e47-8475-abc551f21d7a",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
