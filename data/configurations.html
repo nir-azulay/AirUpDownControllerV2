@@ -19,16 +19,18 @@ input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; marg
 .inline-check { display: inline-flex; align-items: center; font-size: 13px; color: #555; margin-top: 6px; cursor: pointer; }
 .btn-row { display: flex; gap: 10px; margin-top: 20px; }
 .btn { flex: 1; background-color: #00acc1; color: #fff; border: none; border-radius: 6px; padding: 12px 16px; font-size: 14px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; text-align: center; }
-.btn:hover { background-color: #008fa1; }
+.btn:hover:enabled { background-color: #008fa1; }
+.btn:disabled { background-color: #cfd8dc; color: #90a4ae; cursor: default; }
 .btn-secondary { background-color: #607d8b; }
 .btn-secondary:hover { background-color: #455a64; }
 .ver-badge { display: inline-block; background: #e0f7fa; color: #007c91; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 13px; }
+.status-msg { display: none; margin-top: 14px; padding: 10px 12px; border-radius: 6px; font-weight: 600; text-align: center; background: #e0f7fa; color: #007c91; }
 .copyright { color: #e0f7fa; font-size: 12px; margin-top: 12px; }
 </style>
 <script>
 function onloadPage() {
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/settingsValues", true);
+  xhr.open("GET", "/settingsValues?t=" + Date.now(), true);
   xhr.onload = function () {
     if (xhr.status === 200) {
       fillValues(xhr.responseText);
@@ -39,29 +41,43 @@ function onloadPage() {
 function fillValues(values) {
   var aValues = values.split(";");
   if (aValues.length < 15) return;
-  document.getElementById("txt_DeviceName").value = aValues[0];
-  document.getElementById("txt_wifissid").value = aValues[1];
-  document.getElementById("txt_wifipassword").value = "";
-  document.getElementById("txt_RelayCompressorPin").value = aValues[3];
-  document.getElementById("txt_RelayFreePin").value = aValues[4];
-  document.getElementById("txt_SensorPin").value = aValues[5];
+  document.getElementById("txt_DeviceName").value = aValues[0] || "";
+  document.getElementById("txt_wifissid").value = aValues[1] || "";
+  document.getElementById("txt_wifipassword").value = aValues[2] || "";
+  document.getElementById("txt_RelayCompressorPin").value = aValues[3] || "16";
+  document.getElementById("txt_RelayFreePin").value = aValues[4] || "17";
+  document.getElementById("txt_SensorPin").value = aValues[5] || "34";
   document.getElementById("chk_SimulationMode").checked = (aValues[6] === "1" || aValues[6] === "true");
-  document.getElementById("txt_MaxSecForStatus").value = aValues[7];
-  document.getElementById("txt_SensorValueAt0PSI").value = aValues[8];
-  document.getElementById("txt_SensorValueAt50PSI").value = aValues[9];
-  document.getElementById("txt_AccessCode").value = "";
-  document.getElementById("txt_AccessCode").placeholder = (aValues[10] === "1") ? "Code is SET (leave blank to keep)" : "No code set (unlocked)";
+  document.getElementById("txt_MaxSecForStatus").value = aValues[7] || "10";
+  document.getElementById("txt_SensorValueAt0PSI").value = aValues[8] || "410.000";
+  document.getElementById("txt_SensorValueAt50PSI").value = aValues[9] || "3400.000";
+  document.getElementById("txt_AccessCode").value = aValues[10] || "";
+  document.getElementById("txt_AccessCode").placeholder = (aValues[10] && aValues[10].length > 0) ? "Access code is set" : "No code set (unlocked)";
   document.getElementById("chk_ClearAccessCode").checked = false;
-  document.getElementById("txt_MessureWait").value = aValues[11];
-  document.getElementById("txt_Precision").value = aValues[12];
-  document.getElementById("txt_PressureCalcMethod").value = aValues[13];
-  document.getElementById("lbl_version").innerHTML = aValues[15] || "";
-  document.getElementById("txt_MaxPressurePSI").value = aValues[16] || "50.0";
-  document.getElementById("txt_MaxValveOpenSec").value = aValues[17] || "120";
-  document.getElementById("txt_SensorFullScalePSI").value = aValues[18] || "0.0";
+  document.getElementById("txt_MessureWait").value = aValues[11] || "1.00";
+  document.getElementById("txt_Precision").value = aValues[12] || "0.50";
+  document.getElementById("txt_PressureCalcMethod").value = aValues[13] || "1";
+  document.getElementById("lbl_version").innerHTML = aValues[15] || "-";
+  document.getElementById("txt_MaxPressurePSI").value = (aValues[16] !== undefined && aValues[16] !== "") ? aValues[16] : "50.0";
+  document.getElementById("txt_MaxValveOpenSec").value = (aValues[17] !== undefined && aValues[17] !== "") ? aValues[17] : "120";
+  document.getElementById("txt_SensorFullScalePSI").value = (aValues[18] !== undefined && aValues[18] !== "") ? aValues[18] : "50.0";
   document.getElementById("txt_AccessPointPassword").value = aValues[19] || "12345678";
 }
+function onClearAccessCodeToggle(chk) {
+  if (chk.checked) {
+    document.getElementById("txt_AccessCode").value = "";
+  }
+}
 function saveSettings() {
+  var btn = document.getElementById("btnSave");
+  var msg = document.getElementById("statusMsg");
+  btn.disabled = true;
+  msg.style.display = "block";
+  msg.textContent = "Saving settings to flash...";
+
+  var clearCode = document.getElementById("chk_ClearAccessCode").checked;
+  var codeVal = clearCode ? "" : document.getElementById("txt_AccessCode").value;
+
   var params = new URLSearchParams({
     DeviceName: document.getElementById("txt_DeviceName").value,
     wifissid: document.getElementById("txt_wifissid").value,
@@ -72,8 +88,8 @@ function saveSettings() {
     MaxSecForStatus: document.getElementById("txt_MaxSecForStatus").value,
     SensorValueAt0PSI: document.getElementById("txt_SensorValueAt0PSI").value,
     SensorValueAt50PSI: document.getElementById("txt_SensorValueAt50PSI").value,
-    AccessCode: document.getElementById("txt_AccessCode").value,
-    ClearAccessCode: document.getElementById("chk_ClearAccessCode").checked ? "true" : "false",
+    AccessCode: codeVal,
+    ClearAccessCode: clearCode ? "true" : "false",
     MessureWait: document.getElementById("txt_MessureWait").value,
     Precision: document.getElementById("txt_Precision").value,
     PressureCalcMethod: document.getElementById("txt_PressureCalcMethod").value,
@@ -84,10 +100,19 @@ function saveSettings() {
     SimulationMode: document.getElementById("chk_SimulationMode").checked ? "true" : "false"
   });
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/updateSettings?" + params.toString(), true);
+  xhr.open("GET", "/updateSettings?" + params.toString() + "&t=" + Date.now(), true);
   xhr.onload = function () {
-    alert("Settings successfully updated. Device is rebooting...");
-    setTimeout(function () { location.href = "/"; }, 2000);
+    if (xhr.status === 200) {
+      msg.textContent = "Settings saved! Rebooting device...";
+      setTimeout(function () { location.href = "/"; }, 2500);
+    } else {
+      msg.textContent = "Error saving settings";
+      btn.disabled = false;
+    }
+  };
+  xhr.onerror = function () {
+    msg.textContent = "Settings saved! Rebooting device...";
+    setTimeout(function () { location.href = "/"; }, 2500);
   };
   xhr.send();
 }
@@ -101,7 +126,7 @@ function saveSettings() {
 <tr><td><label>Firmware Version</label></td><td><span id="lbl_version" class="ver-badge">-</span></td></tr>
 <tr><td><label>Device Name</label></td><td><input id="txt_DeviceName" type="text" /></td></tr>
 <tr><td><label>Wi-Fi SSID</label></td><td><input id="txt_wifissid" type="text" /></td></tr>
-<tr><td><label>Wi-Fi Password</label></td><td><input id="txt_wifipassword" type="password" placeholder="Leave blank to keep saved" /></td></tr>
+<tr><td><label>Wi-Fi Password</label></td><td><input id="txt_wifipassword" type="password" placeholder="No Wi-Fi password set" /></td></tr>
 <tr><td><label>Relay 1 GPIO (16)</label></td><td><input id="txt_RelayCompressorPin" type="text" /></td></tr>
 <tr><td><label>Relay 2 GPIO (17)</label></td><td><input id="txt_RelayFreePin" type="text" /></td></tr>
 <tr><td><label>Sensor GPIO (34)</label></td><td><input id="txt_SensorPin" type="text" /></td></tr>
@@ -112,12 +137,13 @@ function saveSettings() {
 <tr><td><label>Max Pressure (PSI)</label></td><td><input id="txt_MaxPressurePSI" type="number" step="0.1" /></td></tr>
 <tr><td><label>Max Valve Open (sec)</label></td><td><input id="txt_MaxValveOpenSec" type="number" step="1" /></td></tr>
 <tr><td><label>Hotspot Password</label></td><td><input id="txt_AccessPointPassword" type="password" /></td></tr>
-<tr><td><label>BLE Access Code</label></td><td><input id="txt_AccessCode" type="password" placeholder="Leave blank to keep saved" /><label class="inline-check"><input id="chk_ClearAccessCode" type="checkbox" /> Clear access code</label></td></tr>
+<tr><td><label>BLE Access Code</label></td><td><input id="txt_AccessCode" type="password" placeholder="No code set (unlocked)" /><label class="inline-check"><input id="chk_ClearAccessCode" type="checkbox" onchange="onClearAccessCodeToggle(this);" /> Clear access code</label></td></tr>
 <tr><td><label>Measure Wait (sec)</label></td><td><input id="txt_MessureWait" type="text" /></td></tr>
 <tr><td><label>Precision (PSI)</label></td><td><input id="txt_Precision" type="text" /></td></tr>
 <tr><td><label>Calculation Method</label></td><td><select id="txt_PressureCalcMethod"><option value="1">Method 1 (ADC)</option><option value="2">Method 2 (Voltage)</option></select></td></tr>
 <tr><td><label>Simulation Mode</label></td><td><input id="chk_SimulationMode" type="checkbox" /></td></tr>
 </table>
+<div id="statusMsg" class="status-msg"></div>
 <div class="btn-row">
 <button type="button" class="btn" onclick="saveSettings();" id="btnSave">Save Settings</button>
 <button type="button" class="btn btn-secondary" onclick="location.href='/';">Main Page</button>

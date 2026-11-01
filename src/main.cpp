@@ -17,8 +17,11 @@
 int backupProgress = 0;
 bool wifiInitialized = false;
 int tikingCounter = 0;
-bool upgradeInProgress=false;
-String currentIP= "";
+bool upgradeInProgress = false;
+volatile bool pendingSaveSettings = false;
+volatile bool pendingRestart = false;
+volatile unsigned long pendingRestartAtMs = 0;
+String currentIP = "";
 
 
 #pragma region webServer declaration
@@ -259,7 +262,14 @@ void notFound(AsyncWebServerRequest *request)
 {
     if (request->url().startsWith("/"))
     {
-        request->send(SPIFFS, request->url(), String(), true);
+        bool isJsonOrText = request->url().endsWith(".json") || request->url().endsWith(".txt");
+        AsyncWebServerResponse *response = request->beginResponse(SPIFFS, request->url(), String(), !isJsonOrText);
+        if (response) {
+            response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            request->send(response);
+        } else {
+            request->send(404, "text/plain", "Not found");
+        }
     }
     else
     {
@@ -269,10 +279,8 @@ void notFound(AsyncWebServerRequest *request)
 
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
 {
-    // filelist = "";
     int i = 0;
     String partlist;
-    // Serial.printf("Listing directory: %s\r\n", dirname);
     File root = fs.open(dirname);
     if (!root)
     {
@@ -282,13 +290,13 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
     if (!root.isDirectory())
     {
         Serial.println(" - not a directory");
+        root.close();
         return;
     }
 
     File file = root.openNextFile();
     while (file)
     {
-
         if (file.isDirectory())
         {
             if (levels)
@@ -299,15 +307,21 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
         else
         {
             i++;
-            String st_after_symb = String(file.name()).substring(String(file.name()).indexOf("/") + 1);
+            String fullPath = String(file.name());
+            if (!fullPath.startsWith("/")) {
+                fullPath = "/" + fullPath;
+            }
+            String st_after_symb = fullPath.substring(fullPath.indexOf("/") + 1);
+            size_t fsize = file.size();
+            String sizeStr = (fsize < 1024) ? (String(fsize) + " B") : (String(fsize / 1024.0f, 1) + " KB");
 
-            partlist += String("<tr><td>") + String(i) + String("</td><td>") + st_after_symb + String("</td><td>") + String(file.size() / 1024) + String("</td><td><button type='button' class='btndel' onclick=\"deletef('") + String(file.name()) + String("')\">Delete</button></td></tr>");
+            partlist += String("<tr><td>") + String(i) + String("</td><td><a href='") + fullPath + String("' target='_blank' style='color:#007c91;font-weight:600;text-decoration:none;'>") + st_after_symb + String("</a></td><td>") + sizeStr + String("</td><td><button type='button' class='btndel' onclick=\"deletef('") + fullPath + String("')\">Delete</button></td></tr>");
         }
         file.close();
         file = root.openNextFile();
     }
     root.close();
-    filelist = String("<table><tbody><tr><th>#</th><th>File Name</th><th>Size (KB)</th><th>Action</th></tr>") + partlist + String("</tbody></table>");
+    filelist = String("<table><tbody><tr><th>#</th><th>File Name</th><th>Size</th><th>Action</th></tr>") + partlist + String("</tbody></table>");
 }
 
 void deleteFile(fs::FS &fs, const String &path)
@@ -328,8 +342,7 @@ void deleteFile(fs::FS &fs, const String &path)
 String getSettingsParams(const String &var)
 {
     Serial.println(var);
-    String hasCode = settings.AccessCode.length() > 0 ? "1" : "0";
-    String status = settings.DeviceName + ";" + settings.wifissid + ";;" + String(settings.RelayCompressorPin) + ";" + String(settings.RelayFreePin) + ";" + String(settings.SensorPin) + ";" + String(settings.SimulationMode) + ";" + String(settings.MaxSecForStatus) + ";" + String(settings.SensorValueAt0PSI, 3) + ";" + String(settings.SensorValueAt50PSI, 3) + ";" + hasCode + ";" + String(settings.MessureWait) + ";" + String(settings.Precision) + ";" + String(settings.PressureCalcMethod) + ";0;" + VERSION_SHORT + ";" + String(settings.MaxPressurePSI, 1) + ";" + String(settings.MaxValveOpenSec) + ";" + String(settings.SensorFullScalePSI, 1) + ";" + settings.AccessPointPassword;
+    String status = settings.DeviceName + ";" + settings.wifissid + ";" + settings.wifipassword + ";" + String(settings.RelayCompressorPin) + ";" + String(settings.RelayFreePin) + ";" + String(settings.SensorPin) + ";" + String(settings.SimulationMode) + ";" + String(settings.MaxSecForStatus) + ";" + String(settings.SensorValueAt0PSI, 3) + ";" + String(settings.SensorValueAt50PSI, 3) + ";" + settings.AccessCode + ";" + String(settings.MessureWait) + ";" + String(settings.Precision) + ";" + String(settings.PressureCalcMethod) + ";0;" + VERSION_SHORT + ";" + String(settings.MaxPressurePSI, 1) + ";" + String(settings.MaxValveOpenSec) + ";" + String(settings.SensorFullScalePSI, 1) + ";" + settings.AccessPointPassword;
     Serial.println("getsetSetting: " + status);
     return status;
 }
@@ -437,100 +450,81 @@ void saveSettings(AsyncWebServerRequest *request)
     int paramsNr = request->params();
     Serial.println(paramsNr);
 
+    bool clearAccessCode = false;
     for (int i = 0; i < paramsNr; i++)
     {
         AsyncWebParameter *p = request->getParam(i);
         String paramName = p->name();
+        String val = p->value();
+        val.trim();
         if (paramName == "DeviceName")
-            settings.DeviceName = p->value();
+            settings.DeviceName = val;
         else if (paramName == "wifissid")
-            settings.wifissid = p->value();
+            settings.wifissid = val;
         else if (paramName == "wifipassword")
-        {
-            if (p->value().length() > 0)
-                settings.wifipassword = p->value();
-        }
+            settings.wifipassword = val;
         else if (paramName == "RelayCompressorPin")
-            settings.RelayCompressorPin = p->value().toInt();
+            settings.RelayCompressorPin = val.toInt();
         else if (paramName == "RelayFreePin")
-            settings.RelayFreePin = p->value().toInt();
+            settings.RelayFreePin = val.toInt();
         else if (paramName == "SensorPin")
-            settings.SensorPin = p->value().toInt();
+            settings.SensorPin = val.toInt();
         else if (paramName == "MaxSecForStatus")
-            settings.MaxSecForStatus = p->value().toInt();
+            settings.MaxSecForStatus = val.toInt();
         else if (paramName == "SensorValueAt0PSI")
-            settings.SensorValueAt0PSI = p->value().toFloat();
+            settings.SensorValueAt0PSI = val.toFloat();
         else if (paramName == "SensorValueAt50PSI")
-            settings.SensorValueAt50PSI = p->value().toFloat();
+            settings.SensorValueAt50PSI = val.toFloat();
         else if (paramName == "AccessCode")
-        {
-            if (p->value().length() > 0)
-                settings.AccessCode = p->value();
-        }
+            settings.AccessCode = val;
         else if (paramName == "ClearAccessCode")
         {
-            if (p->value() == "true" || p->value() == "1")
-                settings.AccessCode = "";
+            if (val == "true" || val == "1")
+                clearAccessCode = true;
         }
         else if (paramName == "MessureWait")
-            settings.MessureWait = p->value().toDouble();
+            settings.MessureWait = val.toDouble();
         else if (paramName == "Precision")
-            settings.Precision = p->value().toDouble();
+            settings.Precision = val.toDouble();
         else if (paramName == "SimulationMode")
         {
-            String sSimulationMode = p->value();
-            settings.SimulationMode = sSimulationMode.equalsIgnoreCase("true");
+            settings.SimulationMode = (val.equalsIgnoreCase("true") || val == "1");
             isSimulationMode = settings.SimulationMode;
             LOG_INFO("WEB", "Simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
-            
-            // Reset initial pressure if simulation mode is enabled
             if (isSimulationMode) {
                 currentPressure = 0;
             }
         }
         else if (paramName == "PressureCalcMethod")
         {
-            settings.PressureCalcMethod = p->value().toInt();
+            settings.PressureCalcMethod = val.toInt();
             LOG_INFO("WEB", "Pressure calculation method set to: " + String(settings.PressureCalcMethod));
         }
         else if (paramName == "MaxPressurePSI")
-        {
-            float limit = p->value().toFloat();
-            if (limit > 0)
-                settings.MaxPressurePSI = limit;
-        }
+            settings.MaxPressurePSI = val.toFloat();
         else if (paramName == "MaxValveOpenSec")
-        {
-            int seconds = p->value().toInt();
-            if (seconds >= 10)
-                settings.MaxValveOpenSec = seconds;
-        }
+            settings.MaxValveOpenSec = val.toInt();
         else if (paramName == "SensorFullScalePSI")
-        {
-            float fullScale = p->value().toFloat();
-            if (fullScale >= 0)
-                settings.SensorFullScalePSI = fullScale;
-        }
+            settings.SensorFullScalePSI = val.toFloat();
         else if (paramName == "AccessPointPassword")
-        {
-            String apPassword = p->value();
-            if (apPassword.length() >= 8 && apPassword.indexOf(';') < 0)
-                settings.AccessPointPassword = apPassword;
-        }
+            settings.AccessPointPassword = val;
+    }
+    if (clearAccessCode) {
+        settings.AccessCode = "";
     }
 
 
     normalizeSettings();
-    saveSettingFile();
+    pendingSaveSettings = true;
+    pendingRestart = true;
+    pendingRestartAtMs = millis() + 800;
+
     AsyncResponseStream *response = request->beginResponseStream("text/plain");
+    response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     response->print("Ok");
     request->send(response);
 
-    Serial.println("Update complete");
-    Serial.flush();
-    
-    // שימוש בפונקציה החדשה לתזמון אתחול מחדש
-    scheduleRestart(1000);
+    Serial.println("Settings queued for save and restart");
 }
 
 void setupWebServer()
@@ -571,6 +565,7 @@ void setupWebServer()
     server.on("/filelist", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                   AsyncResponseStream *response = request->beginResponseStream("text/html");
+                  response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
                   response->print(filelist);
                   request->send(response);
               });
@@ -581,6 +576,7 @@ void setupWebServer()
     server.on("/settingsValues", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                   AsyncResponseStream *response = request->beginResponseStream("text/plain");
+                  response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
                   response->print(getSettingsParams("STATE"));
                   request->send(response);
               });
@@ -812,17 +808,6 @@ bool normalizeSettings()
         fixed = true;
     }
 
-    // Auto-align PressureCalcMethod with calibration value scale (ADC counts > 3.3 vs Voltage <= 3.3V)
-    if (settings.PressureCalcMethod == 2 && settings.SensorValueAt50PSI > 3.3f) {
-        LOG_WARNING("SETTINGS", "SensorValueAt50PSI is in ADC counts (>3.3), switching PressureCalcMethod to 1");
-        settings.PressureCalcMethod = 1;
-        fixed = true;
-    } else if (settings.PressureCalcMethod == 1 && settings.SensorValueAt50PSI <= 3.3f) {
-        LOG_WARNING("SETTINGS", "SensorValueAt50PSI is in Volts (<=3.3), switching PressureCalcMethod to 2");
-        settings.PressureCalcMethod = 2;
-        fixed = true;
-    }
-
     if (isnan(settings.MaxPressurePSI) || settings.MaxPressurePSI <= 0.0f || settings.MaxPressurePSI > 200.0f) {
         settings.MaxPressurePSI = 50.0f;
         fixed = true;
@@ -833,7 +818,7 @@ bool normalizeSettings()
         fixed = true;
     }
 
-    if (isnan(settings.SensorFullScalePSI) || settings.SensorFullScalePSI <= 0.0f || settings.SensorFullScalePSI > 300.0f) {
+    if (isnan(settings.SensorFullScalePSI) || settings.SensorFullScalePSI < 0.0f || settings.SensorFullScalePSI > 300.0f) {
         settings.SensorFullScalePSI = 50.0f;
         fixed = true;
     }
@@ -848,6 +833,8 @@ bool normalizeSettings()
     return fixed;
 }
 
+static StaticJsonDocument<4096> settingsJsonDoc;
+
 // setup settings file
 void loadSettingsfile()
 {
@@ -857,16 +844,17 @@ void loadSettingsfile()
         return;
     }
 
-    StaticJsonDocument<2048> doc;
+    settingsJsonDoc.clear();
     bool needsRepair = false;
     bool parsedOk = false;
 
     if (SPIFFS.exists("/settings.json")) {
         File file = SPIFFS.open("/settings.json", FILE_READ);
         if (file) {
-            DeserializationError error = deserializeJson(doc, file);
+            file.setBufferSize(256);
+            DeserializationError error = deserializeJson(settingsJsonDoc, file);
             file.close();
-            if (!error && doc.is<JsonObject>()) {
+            if (!error && settingsJsonDoc.is<JsonObject>()) {
                 parsedOk = true;
             } else {
                 LOG_WARNING("SETTINGS", "Corrupted /settings.json (" + String(error.c_str()) + "), attempting recovery");
@@ -877,9 +865,10 @@ void loadSettingsfile()
     if (!parsedOk && SPIFFS.exists("/settings.json.bak")) {
         File bak = SPIFFS.open("/settings.json.bak", FILE_READ);
         if (bak) {
-            DeserializationError error = deserializeJson(doc, bak);
+            bak.setBufferSize(256);
+            DeserializationError error = deserializeJson(settingsJsonDoc, bak);
             bak.close();
-            if (!error && doc.is<JsonObject>()) {
+            if (!error && settingsJsonDoc.is<JsonObject>()) {
                 LOG_WARNING("SETTINGS", "Recovered settings from /settings.json.bak");
                 parsedOk = true;
                 needsRepair = true;
@@ -894,7 +883,7 @@ void loadSettingsfile()
         return;
     }
 
-    JsonObject obj = doc.as<JsonObject>();
+    JsonObject obj = settingsJsonDoc.as<JsonObject>();
 
     // Check for extra / deprecated keys in the JSON file
     for (JsonPair kv : obj) {
@@ -980,41 +969,52 @@ void loadSettingsfile()
 void saveSettingFile()
 {
     Serial.println("saveSettingFile");
-    DynamicJsonDocument doc(2048);
+    settingsJsonDoc.clear();
 
-    doc["DeviceName"] = settings.DeviceName;
-    doc["wifissid"] = settings.wifissid;
-    doc["wifipassword"] = settings.wifipassword;
-    doc["RelayCompressorPin"] = settings.RelayCompressorPin;
-    doc["RelayFreePin"] = settings.RelayFreePin;
-    doc["SensorPin"] = settings.SensorPin;
-    doc["MaxSecForStatus"] = settings.MaxSecForStatus;
-    doc["SensorValueAt0PSI"] = settings.SensorValueAt0PSI;
-    doc["SensorValueAt50PSI"] = settings.SensorValueAt50PSI;
-    doc["MessureWait"] = settings.MessureWait;
-    doc["Precision"] = settings.Precision;    
-    doc["AccessCode"] = settings.AccessCode;
-    doc["SimulationMode"] = settings.SimulationMode;
-    doc["PressureCalcMethod"] = settings.PressureCalcMethod;
-    doc["MaxPressurePSI"] = settings.MaxPressurePSI;
-    doc["MaxValveOpenSec"] = settings.MaxValveOpenSec;
-    doc["SensorFullScalePSI"] = settings.SensorFullScalePSI;
-    doc["AccessPointPassword"] = settings.AccessPointPassword;
+    settingsJsonDoc["DeviceName"] = settings.DeviceName;
+    settingsJsonDoc["wifissid"] = settings.wifissid;
+    settingsJsonDoc["wifipassword"] = settings.wifipassword;
+    settingsJsonDoc["RelayCompressorPin"] = settings.RelayCompressorPin;
+    settingsJsonDoc["RelayFreePin"] = settings.RelayFreePin;
+    settingsJsonDoc["SensorPin"] = settings.SensorPin;
+    settingsJsonDoc["MaxSecForStatus"] = settings.MaxSecForStatus;
+    settingsJsonDoc["SensorValueAt0PSI"] = settings.SensorValueAt0PSI;
+    settingsJsonDoc["SensorValueAt50PSI"] = settings.SensorValueAt50PSI;
+    settingsJsonDoc["AccessCode"] = settings.AccessCode;
+    settingsJsonDoc["MessureWait"] = settings.MessureWait;
+    settingsJsonDoc["Precision"] = settings.Precision;
+    settingsJsonDoc["SimulationMode"] = settings.SimulationMode;
+    settingsJsonDoc["PressureCalcMethod"] = settings.PressureCalcMethod;
+    settingsJsonDoc["MaxPressurePSI"] = settings.MaxPressurePSI;
+    settingsJsonDoc["MaxValveOpenSec"] = settings.MaxValveOpenSec;
+    settingsJsonDoc["SensorFullScalePSI"] = settings.SensorFullScalePSI;
+    settingsJsonDoc["AccessPointPassword"] = settings.AccessPointPassword;
 
-    if (SPIFFS.exists("/settings.json.bak"))
-        SPIFFS.remove("/settings.json.bak");
-    SPIFFS.rename("/settings.json", "/settings.json.bak");
-
-    File settingsFile = SPIFFS.open("/settings.json", FILE_WRITE);
-
-    if (!settingsFile)
-    {
-        Serial.println("- failed to open settings file for writing");
+    String jsonOutput;
+    serializeJsonPretty(settingsJsonDoc, jsonOutput);
+    if (jsonOutput.length() < 20) {
+        Serial.println("- failed to serialize settings JSON");
         return;
     }
-    serializeJson(doc, settingsFile);
-    settingsFile.close();
-    Serial.println("finish to save settings file");
+
+    // Remove any old/backup files first using POSIX unlink so no old values or conflicting SPIFFS entries remain
+    unlink("/spiffs/settings.json.tmp");
+    unlink("/spiffs/settings.json.bak");
+    unlink("/spiffs/settings.json");
+
+    FILE *f = fopen("/spiffs/settings.json", "w");
+    if (!f) {
+        Serial.println("- failed to open /spiffs/settings.json for writing");
+        return;
+    }
+
+    setvbuf(f, NULL, _IONBF, 0);
+    size_t written = fwrite(jsonOutput.c_str(), 1, jsonOutput.length(), f);
+    fflush(f);
+    fclose(f);
+
+    listDir(SPIFFS, "/", 0);
+    Serial.printf("finish to save settings file (%u bytes)\n", (unsigned int)written);
 }
 
 void printSettingsFile()
@@ -1206,7 +1206,20 @@ void BLESync()
 void loop()
 {
     if (upgradeInProgress) {
-        //LOG_VERBOSE("SYSTEM", "Upgrade in progress, skipping loop");
+        return;
+    }
+
+    if (pendingSaveSettings) {
+        pendingSaveSettings = false;
+        normalizeSettings();
+        saveSettingFile();
+    }
+
+    if (pendingRestart && (long)(millis() - pendingRestartAtMs) >= 0) {
+        pendingRestart = false;
+        LOG_INFO("SYSTEM", "Restarting after settings save");
+        Serial.flush();
+        ESP.restart();
         return;
     }
 
@@ -1792,8 +1805,9 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     
     normalizeSettings();
     LOG_INFO("BLE", "Saving settings and restarting");
-    saveSettingFile();
-    ESP.restart();
+    pendingSaveSettings = true;
+    pendingRestart = true;
+    pendingRestartAtMs = millis() + 500;
 }
 
 void handleSimulationCommand(DynamicJsonDocument &doc) {
@@ -1805,9 +1819,9 @@ void handleSimulationCommand(DynamicJsonDocument &doc) {
     settings.SimulationMode = isSimulationMode;  // Update the settings struct
     LOG_INFO("BLE", "Simulation mode: " + String(isSimulationMode ? "enabled" : "disabled"));
     
-    // Save the setting to file
-    LOG_INFO("BLE", "Saving simulation mode setting to file");
-    saveSettingFile();
+    // Save the setting to file on main loop
+    LOG_INFO("BLE", "Queueing simulation mode setting save");
+    pendingSaveSettings = true;
     
     if (isSimulationMode) {
         currentPressure = 0; // Reset initial pressure in simulation mode
