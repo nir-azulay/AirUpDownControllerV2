@@ -1,6 +1,6 @@
-# Parts to buy
+# Parts to buy (DIY Bill of Materials)
 
-The relays are already on the ESP32 board. Buy the valves, the sensor, the manifold, and the fittings that join them. The tank and the tires are already on the vehicle.
+This is a **DIY (Do-It-Yourself)** build using inexpensive off-the-shelf parts. The relays are already on the ESP32 board. Buy the valves, the sensor, the manifold, and the fittings that join them. The tank and the tires are already on the vehicle.
 
 ## Main parts
 

@@ -1,6 +1,6 @@
-# AirUpDown Controller (`v1.0`)
+# AirUpDown Controller (`v1.0`) — DIY ESP32 Tire Pressure Controller
 
-ESP32 firmware that inflates and deflates tires through two 12 V solenoid valves and reads pressure from a sensor on the shared manifold.
+Open-source **DIY (Do-It-Yourself)** ESP32 firmware that automatically inflates and deflates vehicle tires through two 12 V solenoid valves and reads pressure from a transducer on a shared manifold.
 
 - [Hardware, wiring, and air path](docs/HARDWARE.md)
 - [Parts to buy](docs/PARTS.md)

@@ -1,6 +1,6 @@
-# AirUpDown controller hardware
+# AirUpDown controller hardware (DIY Build Guide)
 
-The controller inflates and deflates tires from one shared air volume. An ESP32 board with two onboard relays drives two 12 V solenoid valves. A pressure sensor on the same volume reports tire pressure.
+This is a **DIY (Do-It-Yourself)** hardware build using off-the-shelf components. The controller inflates and deflates tires from one shared air volume. An ESP32 board with two onboard relays drives two 12 V solenoid valves. A pressure sensor on the same volume reports tire pressure.
 
 The schematic is `hardware/AirUpDownController.sch`. BLE messages are described in [BLE_PROTOCOL.md](BLE_PROTOCOL.md). The phone apps are TiresAirPressure-Android and TiresAirPressure-iOS.
 
