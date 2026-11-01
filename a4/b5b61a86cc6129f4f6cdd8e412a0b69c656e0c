@@ -1,0 +1,19 @@
+.gitignore
+  s_d312b23a5c97c7::t_26b72e68031e19 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "a4b5b61a86cc6129f4f6cdd8e412a0b69c656e0c",
+  "prompts": {},
+  "sessions": {
+    "s_d312b23a5c97c7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4073ab5b-854e-4e47-8475-abc551f21d7a",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
