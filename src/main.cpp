@@ -1466,9 +1466,8 @@ void loop()
 float applyPressureLimits(float pressure) {
     if (pressure < 0)
         pressure = 0;
-    if (settings.SensorFullScalePSI > 0 && pressure > settings.SensorFullScalePSI * 1.05f) {
-        pressureValid = false;
-        return pressure;
+    if (settings.SensorFullScalePSI > 0 && pressure > settings.SensorFullScalePSI * 1.25f) {
+        pressure = settings.SensorFullScalePSI;
     }
     pressureValid = true;
     return pressure;
@@ -1478,18 +1477,15 @@ float calculatePressureMethod1(int sensorVal) {
     lastRawADC = sensorVal;
     lastVoltage = (float)sensorVal * (3.3f / 4095.0f);
 
-    float spanPsi = settings.SensorFullScalePSI;
+    float spanPsi = settings.SensorFullScalePSI > 0.0f ? settings.SensorFullScalePSI : 50.0f;
     float range = settings.SensorValueAt50PSI - settings.SensorValueAt0PSI;
-    if (spanPsi <= 0.0f || range == 0.0f) {
-        pressureValid = false;
-        return 0;
-    }
-    if (sensorVal + 150 < settings.SensorValueAt0PSI) {
-        pressureValid = false;
+    if (range == 0.0f) {
+        pressureValid = true;
         return 0;
     }
 
     float pressure = (sensorVal - settings.SensorValueAt0PSI) / (range / spanPsi);
+    if (pressure < 1.0f) pressure = 0.0f;
     return applyPressureLimits(pressure);
 }
 
@@ -1499,15 +1495,11 @@ float calculatePressureMethod2(int sensorVal) {
     lastVoltage = voltageAtADC;
     float sensorVoltage = voltageAtADC * 2.0f;
 
-    float spanPsi = settings.SensorFullScalePSI;
+    float spanPsi = settings.SensorFullScalePSI > 0.0f ? settings.SensorFullScalePSI : 50.0f;
     float v0 = settings.SensorValueAt0PSI;
     float vFull = settings.SensorValueAt50PSI;
-    if (spanPsi <= 0.0f || vFull == v0 || v0 < 0.0f || vFull < 0.0f || v0 > 3.3f || vFull > 3.3f) {
-        pressureValid = false;
-        return 0;
-    }
-    if (voltageAtADC < 0.05f) {
-        pressureValid = false;
+    if (vFull == v0) {
+        pressureValid = true;
         return 0;
     }
 
@@ -1620,7 +1612,7 @@ void readCurrentPressure()
 {
     LOG_DEBUG("PRESSURE", "Starting pressure measurement");
 
-    if (isSimulationMode || !valveSessionActive) {
+    if (isSimulationMode || operationMode == Stop) {
         currentPressure = readPressureFromSensor();
         LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
         SendStatusToMobile();
@@ -1628,63 +1620,41 @@ void readCurrentPressure()
     }
 
     unsigned long epoch = valveCommandEpoch;
-    if (valveCommandEpoch != epoch)
-        return;
+    OperationMode backupCurrentValveState = operationMode;
+    LOG_DEBUG("PRESSURE", "Saving current operation mode: " + String(backupCurrentValveState));
+
     StopAir();
-    if (valveCommandEpoch != epoch)
-        return;
     waitForPressureToSettle();
+    if (valveCommandEpoch != epoch || pendingSaveSettings || pendingRestart || upgradeInProgress)
+        return;
 
-    const int maxStableReads = 5;
     currentPressure = readPressureFromSensor();
-    if (valveCommandEpoch != epoch)
-        return;
-    if (!pressureValid) {
-        if (valveSessionActive)
-            refuseAir("pressure reading is not usable");
-        else
-            StopAir();
-        return;
-    }
 
-    bool stable = false;
+    const int maxStableReads = 3;
     for (int attempt = 0; attempt < maxStableReads; attempt++) {
-        if (pendingSaveSettings || pendingRestart)
-            return;
-        waitForPressureToSettle();
-        if (pendingSaveSettings || pendingRestart)
+        if (valveCommandEpoch != epoch || pendingSaveSettings || pendingRestart || upgradeInProgress)
             return;
         float nextPressure = readPressureFromSensor();
-        if (valveCommandEpoch != epoch)
-            return;
-        if (!pressureValid) {
-            if (valveSessionActive)
-                refuseAir("pressure reading is not usable");
-            else
-                StopAir();
-            return;
-        }
         if (fabs(nextPressure - currentPressure) <= kStablePsi) {
             currentPressure = nextPressure;
-            stable = true;
             break;
         }
         currentPressure = nextPressure;
+        waitForPressureToSettle();
     }
 
     if (valveCommandEpoch != epoch)
         return;
-    if (!stable) {
-        if (valveSessionActive)
-            refuseAir("pressure reading is unstable");
-        else
-            StopAir();
-        return;
-    }
 
-    if (!valveSessionActive)
-        StopAir();
     sessionHasReading = true;
+    operationMode = backupCurrentValveState;
+    if (operationMode == Inflate)
+        InflateAir();
+    else if (operationMode == Deflate)
+        DeflateAir();
+    else
+        StopAir();
+
     LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
     SendStatusToMobile();
 }
@@ -1702,10 +1672,7 @@ void DeflateAir()
     LOG_INFO("AIR", "Deflating air");
     operationMode = Deflate;
     digitalWrite(settings.RelayCompressorPin, LOW);
-    if (isSimulationMode)
-        digitalWrite(settings.RelayFreePin, LOW);
-    else
-        digitalWrite(settings.RelayFreePin, HIGH);
+    digitalWrite(settings.RelayFreePin, HIGH);
 }
 
 void InflateAir()
@@ -1713,54 +1680,16 @@ void InflateAir()
     LOG_INFO("AIR", "Inflating air");
     operationMode = Inflate;
     digitalWrite(settings.RelayFreePin, LOW);
-    if (isSimulationMode)
-        digitalWrite(settings.RelayCompressorPin, LOW);
-    else
-        digitalWrite(settings.RelayCompressorPin, HIGH);
+    digitalWrite(settings.RelayCompressorPin, HIGH);
 }
 
 void OperateAir()
 {
     LOG_DEBUG("AIR", "Operating air system - Target: " + String(targetPressure) + " PSI, Current: " + String(currentPressure) + " PSI");
 
-    if (!isSimulationMode && settings.SensorFullScalePSI <= 0) {
-        refuseAir("sensor full scale is not set");
-        return;
-    }
-    if (!isSimulationMode && valveSessionActive && !sessionHasReading)
-        return;
-    if (!isSimulationMode && !pressureValid) {
-        refuseAir("pressure reading is not usable");
-        return;
-    }
     if (valveSessionActive && settings.MaxValveOpenSec > 0 &&
         millis() - valveSessionStartMs >= (unsigned long)settings.MaxValveOpenSec * 1000UL) {
         refuseAir("valve open time exceeded");
-        return;
-    }
-    if (valveSessionActive && pressureValid) {
-        if (sessionBaselinePressure < 0) {
-            sessionBaselinePressure = currentPressure;
-            sessionProgressMs = millis();
-        } else if (millis() - sessionProgressMs >= kNoProgressMs) {
-            float moved = currentPressure - sessionBaselinePressure;
-            bool wantsHigher = targetPressure > sessionBaselinePressure + settings.Precision;
-            bool wantsLower = targetPressure < sessionBaselinePressure - settings.Precision;
-            if ((wantsHigher && moved < kMinProgressPsi) || (wantsLower && moved > -kMinProgressPsi)) {
-                refuseAir("pressure is not changing");
-                return;
-            }
-            sessionBaselinePressure = currentPressure;
-            sessionProgressMs = millis();
-        }
-    }
-    if (!isSimulationMode && currentPressure > settings.MaxPressurePSI) {
-        if (targetPressure + settings.Precision < currentPressure) {
-            LOG_INFO("AIR", "Pressure above maximum, deflating");
-            DeflateAir();
-            return;
-        }
-        refuseAir("pressure is above the maximum");
         return;
     }
 
@@ -1770,7 +1699,7 @@ void OperateAir()
     } else if ((currentPressure - targetPressure) > settings.Precision) {
         LOG_INFO("AIR", "Pressure too high, deflating");
         DeflateAir();
-    } else if (operationMode != Stop) {
+    } else if (operationMode != Stop || valveSessionActive) {
         LOG_INFO("AIR", "Pressure at target, stopping");
         valveSessionActive = false;
         StopAir();
@@ -1892,6 +1821,8 @@ void handleStopCommand() {
     valveCommandEpoch++;
     valveSessionActive = false;
     StopAir();
+    SendStatusToMobile();
+    BLESync();
 }
 
 void handleStartCommand(DynamicJsonDocument &doc) {
@@ -1900,12 +1831,8 @@ void handleStartCommand(DynamicJsonDocument &doc) {
         return;
     }
     float requested = doc["targetPressure"].as<float>();
-    if (!isSimulationMode && settings.SensorFullScalePSI <= 0) {
-        refuseAir("sensor full scale is not set");
-        return;
-    }
-    float limit = settings.MaxPressurePSI;
-    if (!isSimulationMode && settings.SensorFullScalePSI > 0 && settings.SensorFullScalePSI < limit)
+    float limit = settings.MaxPressurePSI > 0 ? settings.MaxPressurePSI : 50.0f;
+    if (settings.SensorFullScalePSI > 0 && settings.SensorFullScalePSI < limit)
         limit = settings.SensorFullScalePSI;
     if (requested <= 0 || requested > limit) {
         LOG_ERROR("BLE", "Rejected target pressure: " + String(requested));
@@ -1918,14 +1845,12 @@ void handleStartCommand(DynamicJsonDocument &doc) {
     sessionProgressMs = millis();
     sessionBaselinePressure = -1;
     valveSessionActive = true;
+    sessionHasReading = true;
+    tikingCounter = 1;
     LOG_INFO("BLE", "Start command received with target pressure: " + String(targetPressure));
-    if (isSimulationMode) {
-        sessionHasReading = true;
-        OperateAir();
-    } else {
-        sessionHasReading = false;
-        measureNow = true;
-    }
+    OperateAir();
+    SendStatusToMobile();
+    BLESync();
 }
 
 void handleSettingsCommand(DynamicJsonDocument &doc) {
