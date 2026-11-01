@@ -18,6 +18,7 @@ int backupProgress = 0;
 bool wifiInitialized = false;
 int tikingCounter = 0;
 bool upgradeInProgress = false;
+volatile unsigned long lastUpdateChunkMs = 0;
 volatile bool pendingSaveSettings = false;
 volatile bool pendingRestart = false;
 volatile unsigned long pendingRestartAtMs = 0;
@@ -176,11 +177,14 @@ String processor_update(const String &var)
 
 void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final)
 {
-    Serial.println("Update");
-    upgradeInProgress=true;
+    upgradeInProgress = true;
+    lastUpdateChunkMs = millis();
 
     if (!index)
     {
+        if (Update.isRunning()) {
+            Update.abort();
+        }
         content_len = request->contentLength();
         // if filename includes spiffs, update the spiffs partition
         int cmd = (filename.indexOf("spiffs") > -1) ? U_PART : U_FLASH;
@@ -1363,7 +1367,14 @@ void BLESync()
 void loop()
 {
     if (upgradeInProgress) {
-        return;
+        if (millis() - lastUpdateChunkMs > 20000) {
+            if (Update.isRunning()) {
+                Update.abort();
+            }
+            upgradeInProgress = false;
+        } else {
+            return;
+        }
     }
 
     if (pendingSaveSettings) {
