@@ -135,17 +135,20 @@ class CharacteristicCallBack: public BLECharacteristicCallbacks {
       
       LOG_DEBUG("BLE", "Received value length: " + String(pChar2_value_string.length()));
       LOG_VERBOSE("BLE", "Received value: " + pChar2_value_string);
-      LOG_VERBOSE("BLE", "Last character: " + String(pChar2_value_string.charAt(pChar2_value_string.length()-1)));
 
       incompleteBLEMessage += pChar2_value_string;
 
-      // Check if message is complete (ends with })
-      if (pChar2_value_string.indexOf("}") >= 0) {
-        LOG_INFO("BLE", "Complete message received: " + incompleteBLEMessage);
-        handleBLEMessage(incompleteBLEMessage);
-        incompleteBLEMessage = "";
-      } else {
-        LOG_DEBUG("BLE", "Partial message received, waiting for more data");
+      // Process all complete JSON messages (from '{' to '}') in buffer
+      int closeIdx = incompleteBLEMessage.indexOf('}');
+      while (closeIdx >= 0) {
+        int openIdx = incompleteBLEMessage.indexOf('{');
+        if (openIdx >= 0 && openIdx < closeIdx) {
+          String completeMsg = incompleteBLEMessage.substring(openIdx, closeIdx + 1);
+          LOG_INFO("BLE", "Complete message received: " + completeMsg);
+          handleBLEMessage(completeMsg);
+        }
+        incompleteBLEMessage = incompleteBLEMessage.substring(closeIdx + 1);
+        closeIdx = incompleteBLEMessage.indexOf('}');
       }
     } else {
       LOG_WARNING("BLE", "Received empty value");
@@ -660,25 +663,30 @@ void setupWebServer()
 // setup Wifi connection
 void setupWiFi()
 {
-    int maxRetry = 2;
+    int maxRetry = 3;
     int retryCounter = 0;
+    bool staConnected = false;
 
-    if (settings.wifissid.length() > 0)
+    String ssid = settings.wifissid;
+    ssid.trim();
+
+    if (ssid.length() > 0)
     {
+        Serial.println("Attempting WiFi STA connection to: " + ssid);
         WiFi.mode(WIFI_STA);
-        WiFi.begin(settings.wifissid.c_str(), settings.wifipassword.c_str());
+        WiFi.begin(ssid.c_str(), settings.wifipassword.c_str());
         while (WiFi.status() != WL_CONNECTED && retryCounter < maxRetry)
         {
             delay(2000);
             Serial.println("Connecting to WiFi..");
             retryCounter++;
         }
+        staConnected = (WiFi.status() == WL_CONNECTED);
     }
-    if (settings.wifissid.length() > 0 && WiFi.status() == WL_CONNECTED)
-    {
 
+    if (staConnected)
+    {
         Serial.println("Connected to the WiFi network");
-        // Print local IP address and start web server
         Serial.println("");
         Serial.println("WiFi connected.");
         Serial.println("IP address: ");
@@ -689,13 +697,33 @@ void setupWiFi()
     }
     else
     {
-        WiFi.disconnect(true);
+        // Always fall back to SoftAP if Wi-Fi is not configured or failed to connect
+        WiFi.disconnect(true, true);
+        WiFi.mode(WIFI_OFF);
+        delay(100);
         WiFi.mode(WIFI_AP);
-        WiFi.softAP(settings.DeviceName.c_str(), settings.AccessPointPassword.c_str());
+
+        String apName = settings.DeviceName;
+        apName.trim();
+        if (apName.length() == 0) {
+            apName = "esp32-AirUpDownController";
+        }
+
+        String apPass = settings.AccessPointPassword;
+        if (apPass.length() < 8) {
+            apPass = "12345678";
+        }
+
+        bool apStarted = WiFi.softAP(apName.c_str(), apPass.c_str());
+        if (!apStarted) {
+            // Ultimate fallback if custom name/password was rejected by driver
+            WiFi.softAP("esp32-AirUpDownController", "12345678");
+        }
+
         IPAddress IP = WiFi.softAPIP();
         Serial.println("");
-        Serial.println("WiFi not connected!");
-        Serial.println("Setup Access point named: " + settings.DeviceName);
+        Serial.println("WiFi not connected! Falling back to Access Point.");
+        Serial.println("Setup Access point named: " + apName);
         Serial.println("Use the access-point password saved on the configuration page.");
         Serial.println("browse to the following IP: " + IP.toString());
         currentIP = IP.toString();
@@ -833,7 +861,7 @@ bool normalizeSettings()
     return fixed;
 }
 
-static StaticJsonDocument<4096> settingsJsonDoc;
+static StaticJsonDocument<2048> settingsJsonDoc;
 
 // setup settings file
 void loadSettingsfile()
@@ -1149,6 +1177,27 @@ void setup()
 
 
 
+static void notifyBLEPayload(const String &payload)
+{
+    if (!deviceConnected || pCharacteristic == nullptr)
+        return;
+
+    const size_t maxChunk = 180;
+    size_t totalLen = payload.length();
+    if (totalLen <= maxChunk) {
+        pCharacteristic->setValue(payload.c_str());
+        pCharacteristic->notify();
+        return;
+    }
+
+    for (size_t offset = 0; offset < totalLen; offset += maxChunk) {
+        String chunk = payload.substring(offset, min(offset + maxChunk, totalLen));
+        pCharacteristic->setValue(chunk.c_str());
+        pCharacteristic->notify();
+        delay(15);
+    }
+}
+
 void BLESync()
 {
     LOG_VERBOSE("BLE", "BLESync started");
@@ -1161,13 +1210,11 @@ void BLESync()
             if (settings.AccessCode.length() == 0 || bleAuthorized) {
                 LOG_INFO("BLE", "First connection - sending settings");
                 String settingsJson = getSettingsJSON();
-                pCharacteristic->setValue(settingsJson.c_str());
-                pCharacteristic->notify();
+                notifyBLEPayload(settingsJson);
             } else {
                 LOG_INFO("BLE", "First connection - access code required");
                 BLEBufferValue = "";
-                pCharacteristic->setValue("{\"type\":\"auth\",\"ok\":false,\"required\":true}");
-                pCharacteristic->notify();
+                notifyBLEPayload("{\"type\":\"auth\",\"ok\":false,\"required\":true}");
                 return;
             }
         }
@@ -1179,8 +1226,7 @@ void BLESync()
 
         if (BLEBufferValue.length() > 0) {
             LOG_DEBUG("BLE", "Sending status update: " + BLEBufferValue);
-            pCharacteristic->setValue(BLEBufferValue.c_str());
-            pCharacteristic->notify();
+            notifyBLEPayload(BLEBufferValue);
             
             BLEBufferValue = "";
             LOG_DEBUG("BLE", "Status update sent");
@@ -1379,6 +1425,9 @@ float readPressureFromSensor()
     
     // Collect samples
     for(int i = 0; i < NUM_SAMPLES; i++) {
+        if (pendingSaveSettings || pendingRestart) {
+            return currentPressure;
+        }
         samples[i] = analogRead(settings.SensorPin);
         delay(25); // Small delay between readings
     }
@@ -1423,6 +1472,9 @@ void waitForPressureToSettle()
     unsigned long startTime = millis();
     unsigned long waitMs = (unsigned long)(1000.0 * settings.MessureWait);
     while (millis() - startTime < waitMs) {
+        if (pendingSaveSettings || pendingRestart) {
+            return;
+        }
         yield();
         delay(10);
     }
@@ -1469,7 +1521,11 @@ void readCurrentPressure()
 
     bool stable = false;
     for (int attempt = 0; attempt < maxStableReads; attempt++) {
+        if (pendingSaveSettings || pendingRestart)
+            return;
         waitForPressureToSettle();
+        if (pendingSaveSettings || pendingRestart)
+            return;
         float nextPressure = readPressureFromSensor();
         if (valveCommandEpoch != epoch)
             return;
@@ -1741,14 +1797,23 @@ void handleStartCommand(DynamicJsonDocument &doc) {
 
 void handleSettingsCommand(DynamicJsonDocument &doc) {
     LOG_INFO("BLE", "Settings update command received");
-    if (doc.containsKey("DeviceName") && doc["DeviceName"].is<const char*>())
-        settings.DeviceName = doc["DeviceName"].as<String>();
-    if (doc.containsKey("wifissid") && doc["wifissid"].is<const char*>())
-        settings.wifissid = doc["wifissid"].as<String>();
+    if (doc.containsKey("DeviceName") && doc["DeviceName"].is<const char*>()) {
+        String name = doc["DeviceName"].as<String>();
+        name.trim();
+        settings.DeviceName = name;
+    }
+    if (doc.containsKey("wifissid") && doc["wifissid"].is<const char*>()) {
+        String ssid = doc["wifissid"].as<String>();
+        ssid.trim();
+        settings.wifissid = ssid;
+        if (ssid.length() == 0) {
+            settings.wifipassword = "";
+        }
+    }
     if (doc.containsKey("wifipassword") && doc["wifipassword"].is<const char*>()) {
         String pwd = doc["wifipassword"].as<String>();
-        if (pwd.length() > 0)
-            settings.wifipassword = pwd;
+        pwd.trim();
+        settings.wifipassword = pwd;
     }
     if (doc.containsKey("RelayCompressorPin"))
         settings.RelayCompressorPin = doc["RelayCompressorPin"].as<int>();
@@ -1780,6 +1845,7 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
         settings.MaxValveOpenSec = doc["MaxValveOpenSec"].as<int>();
     if (doc.containsKey("AccessPointPassword") && doc["AccessPointPassword"].is<const char*>()) {
         String apPwd = doc["AccessPointPassword"].as<String>();
+        apPwd.trim();
         if (apPwd.length() >= 8 && apPwd.indexOf(';') < 0)
             settings.AccessPointPassword = apPwd;
     }
@@ -1787,13 +1853,19 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
         settings.AccessCode = "";
     } else if (doc.containsKey("AccessCode") && doc["AccessCode"].is<const char*>()) {
         String code = doc["AccessCode"].as<String>();
+        code.trim();
         if (code.length() > 0)
             settings.AccessCode = code;
     }
 
     // Check if SimulationMode is included in the settings update
     if (doc.containsKey("SimulationMode")) {
-        settings.SimulationMode = doc["SimulationMode"].as<bool>();
+        if (doc["SimulationMode"].is<bool>()) {
+            settings.SimulationMode = doc["SimulationMode"].as<bool>();
+        } else {
+            String simStr = doc["SimulationMode"].as<String>();
+            settings.SimulationMode = (simStr.equalsIgnoreCase("true") || simStr == "1");
+        }
         isSimulationMode = settings.SimulationMode;
         LOG_INFO("BLE", "Simulation mode updated through settings: " + String(isSimulationMode ? "enabled" : "disabled"));
         
@@ -1807,7 +1879,7 @@ void handleSettingsCommand(DynamicJsonDocument &doc) {
     LOG_INFO("BLE", "Saving settings and restarting");
     pendingSaveSettings = true;
     pendingRestart = true;
-    pendingRestartAtMs = millis() + 500;
+    pendingRestartAtMs = millis() + 600;
 }
 
 void handleSimulationCommand(DynamicJsonDocument &doc) {
