@@ -1,0 +1,21 @@
+src/main.cpp
+  s_d312b23a5c97c7::t_ef6481fe154cc2 180-181,185-187
+  s_d312b23a5c97c7::t_d9d87170c5e55f 1370-1377
+  s_d312b23a5c97c7::t_6588d00c1f50e2 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "51fbc13c2d85fc36743bff865e7ae31a23c77a6a",
+  "prompts": {},
+  "sessions": {
+    "s_d312b23a5c97c7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4073ab5b-854e-4e47-8475-abc551f21d7a",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
