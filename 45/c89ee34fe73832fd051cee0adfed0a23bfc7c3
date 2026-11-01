@@ -1,0 +1,26 @@
+versioning
+  s_d312b23a5c97c7::t_f48b80702ed8c1 1
+src/main.cpp
+  s_d312b23a5c97c7::t_0ad3d6fd1b7078 748,751,778-780
+  s_d312b23a5c97c7::t_2fb81d67a0efce 587-633
+data/configurations.html
+  s_d312b23a5c97c7::t_7b419ce8fb1efe 20-24,36-37,45-103,107-113,139,145,203-214
+include/version.h
+  s_d312b23a5c97c7::t_f48b80702ed8c1 3,6,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "45c89ee34fe73832fd051cee0adfed0a23bfc7c3",
+  "prompts": {},
+  "sessions": {
+    "s_d312b23a5c97c7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4073ab5b-854e-4e47-8475-abc551f21d7a",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
