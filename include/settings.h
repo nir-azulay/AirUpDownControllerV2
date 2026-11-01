@@ -41,7 +41,8 @@ enum Commands {
     start = 2,
     setting = 3,
     debug_mode = 7,
-    authenticate = 8
+    authenticate = 8,
+    scan_wifi = 9
 };
 
 // Global settings instance

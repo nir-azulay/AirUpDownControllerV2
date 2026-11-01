@@ -1,7 +1,7 @@
 #include "settings.h"
 
 // Version definition
-const float Software_VER = 1.04;
+const float Software_VER = 2.00;
 
 // Global settings instance with default values
 DeviceSettings settings = {

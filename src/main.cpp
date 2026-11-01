@@ -21,6 +21,9 @@ bool upgradeInProgress = false;
 volatile bool pendingSaveSettings = false;
 volatile bool pendingRestart = false;
 volatile unsigned long pendingRestartAtMs = 0;
+volatile bool pendingBleWifiScan = false;
+volatile bool pendingStartWifiScan = false;
+volatile unsigned long pendingStartWifiScanAtMs = 0;
 String currentIP = "";
 
 
@@ -201,6 +204,7 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
         if (!Update.end(true))
         {
             Update.printError(Serial);
+            upgradeInProgress = false;
         }
         else
         {
@@ -209,7 +213,6 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
             scheduleRestart(1000);
         }
     }
-    upgradeInProgress=false;
 }
 
 void handleDoUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
@@ -601,12 +604,12 @@ void setupWebServer()
                   bool forceRescan = request->hasParam("rescan");
                   int n = WiFi.scanComplete();
                   if (forceRescan && n != WIFI_SCAN_RUNNING) {
-                      WiFi.scanDelete();
-                      // Fast active scan (120ms/channel) so STA/AP connection stays responsive
-                      WiFi.scanNetworks(true, false, false, 120);
+                      pendingStartWifiScan = true;
+                      pendingStartWifiScanAtMs = millis() + 120;
                       n = WIFI_SCAN_RUNNING;
                   } else if (n == WIFI_SCAN_FAILED) {
-                      WiFi.scanNetworks(true, false, false, 120);
+                      pendingStartWifiScan = true;
+                      pendingStartWifiScanAtMs = millis() + 120;
                       n = WIFI_SCAN_RUNNING;
                   }
 
@@ -724,7 +727,7 @@ void setupWebServer()
 // setup Wifi connection
 void setupWiFi()
 {
-    int maxRetry = 3;
+    int maxRetry = 5;
     int retryCounter = 0;
     bool staConnected = false;
 
@@ -1262,6 +1265,50 @@ static void notifyBLEPayload(const String &payload)
     }
 }
 
+void sendWifiNetworksToMobile()
+{
+    if (!deviceConnected || pCharacteristic == nullptr)
+        return;
+    int n = WiFi.scanComplete();
+    if (n < 0)
+        return;
+
+    String listStr = "";
+    int added = 0;
+    for (int i = 0; i < n && added < 15; i++) {
+        String ssid = WiFi.SSID(i);
+        ssid.trim();
+        if (ssid.length() == 0) continue;
+        ssid.replace("\"", "");
+        ssid.replace("'", "");
+        ssid.replace("\\", "");
+        ssid.replace("{", "");
+        ssid.replace("}", "");
+        ssid.replace(";", "");
+        ssid.replace("|", "");
+        if (ssid.length() == 0) continue;
+
+        bool duplicate = false;
+        for (int j = 0; j < i; j++) {
+            String prev = WiFi.SSID(j);
+            prev.trim();
+            if (prev == ssid) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (duplicate) continue;
+
+        if (added > 0) listStr += ";";
+        listStr += ssid + "|" + String((int)WiFi.RSSI(i));
+        added++;
+    }
+
+    String json = String("{\"type\":\"wifi_list\",\"networks\":\"") + listStr + "\"}";
+    LOG_INFO("BLE", "Sending Wi-Fi list to mobile: " + json);
+    notifyBLEPayload(json);
+}
+
 void BLESync()
 {
     LOG_VERBOSE("BLE", "BLESync started");
@@ -1331,6 +1378,23 @@ void loop()
         Serial.flush();
         ESP.restart();
         return;
+    }
+
+    if (pendingStartWifiScan && (long)(millis() - pendingStartWifiScanAtMs) >= 0) {
+        pendingStartWifiScan = false;
+        int n = WiFi.scanComplete();
+        if (n != WIFI_SCAN_RUNNING) {
+            if (n >= 0) WiFi.scanDelete();
+            WiFi.scanNetworks(true, false, false, 120);
+        }
+    }
+
+    if (pendingBleWifiScan && !pendingStartWifiScan) {
+        int n = WiFi.scanComplete();
+        if (n >= 0) {
+            pendingBleWifiScan = false;
+            sendWifiNetworksToMobile();
+        }
     }
 
     static unsigned long lastExecutionTime = 0;
@@ -1489,11 +1553,11 @@ float readPressureFromSensor()
     
     // Collect samples
     for(int i = 0; i < NUM_SAMPLES; i++) {
-        if (pendingSaveSettings || pendingRestart) {
+        if (upgradeInProgress || pendingSaveSettings || pendingRestart) {
             return currentPressure;
         }
         samples[i] = analogRead(settings.SensorPin);
-        delay(25); // Small delay between readings
+        delay(2); // Small delay between readings
     }
     
     // Sort samples
@@ -1536,7 +1600,7 @@ void waitForPressureToSettle()
     unsigned long startTime = millis();
     unsigned long waitMs = (unsigned long)(1000.0 * settings.MessureWait);
     while (millis() - startTime < waitMs) {
-        if (pendingSaveSettings || pendingRestart) {
+        if (upgradeInProgress || pendingSaveSettings || pendingRestart) {
             return;
         }
         yield();
@@ -1556,7 +1620,7 @@ void readCurrentPressure()
 {
     LOG_DEBUG("PRESSURE", "Starting pressure measurement");
 
-    if (isSimulationMode) {
+    if (isSimulationMode || !valveSessionActive) {
         currentPressure = readPressureFromSensor();
         LOG_INFO("PRESSURE", "Current pressure: " + String(currentPressure) + " PSI");
         SendStatusToMobile();
@@ -1734,6 +1798,7 @@ void SendSettingsToMobile()
 
 void handleDebugModeCommand(DynamicJsonDocument &doc);
 void handleAuthCommand(DynamicJsonDocument &doc);
+void handleScanWifiCommand(DynamicJsonDocument &doc);
 
 void sendAuthState(bool ok)
 {
@@ -1809,6 +1874,10 @@ void handleBLEMessage(String Message)
     else if (cmd == 7) {
         // Debug mode command
         handleDebugModeCommand(doc);
+    }
+    else if (cmd == 9) {
+        // Scan Wi-Fi networks command
+        handleScanWifiCommand(doc);
     }
     else {
         // Unknown command
@@ -1979,6 +2048,23 @@ void handleLogLevelCommand(DynamicJsonDocument &doc) {
 void handleGetSettingsCommand() {
     LOG_INFO("BLE", "Get settings command received");
     SendSettingsToMobile();
+    if (WiFi.scanComplete() >= 0) {
+        sendWifiNetworksToMobile();
+    }
+}
+
+void handleScanWifiCommand(DynamicJsonDocument &doc) {
+    bool forceRescan = doc.containsKey("rescan") ? doc["rescan"].as<bool>() : true;
+    int n = WiFi.scanComplete();
+    if (!forceRescan && n >= 0) {
+        sendWifiNetworksToMobile();
+        return;
+    }
+    if (n != WIFI_SCAN_RUNNING) {
+        pendingStartWifiScan = true;
+        pendingStartWifiScanAtMs = millis() + 80;
+    }
+    pendingBleWifiScan = true;
 }
 
 void handleAuthCommand(DynamicJsonDocument &doc) {
