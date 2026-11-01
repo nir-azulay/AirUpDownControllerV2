@@ -1,0 +1,23 @@
+docs/HARDWARE.md
+  s_d312b23a5c97c7::t_79ecb0c2b95097 1,3
+docs/PARTS.md
+  s_d312b23a5c97c7::t_117d079499f34c 1,3
+README.md
+  s_d312b23a5c97c7::t_fb4502c7b46f17 1,3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "5cb710f03faf7422bb2393d0277baec34aba0e2f",
+  "prompts": {},
+  "sessions": {
+    "s_d312b23a5c97c7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4073ab5b-854e-4e47-8475-abc551f21d7a",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
