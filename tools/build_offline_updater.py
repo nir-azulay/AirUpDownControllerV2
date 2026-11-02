@@ -118,13 +118,25 @@ body {{
   background: #101318;
   color: #eceff4;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   margin: 0;
-  padding: 16px 12px 32px;
+  padding: 20px 24px 36px;
 }}
 .app-shell {{
-  max-width: 540px;
+  max-width: 1340px;
+  width: 100%;
   margin: 0 auto;
+}}
+.dashboard-grid {{
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  gap: 18px;
+  align-items: start;
+}}
+@media (max-width: 960px) {{
+  .dashboard-grid {{
+    grid-template-columns: 1fr;
+  }}
 }}
 .top-bar {{
   display: flex;
@@ -132,18 +144,18 @@ body {{
   justify-content: space-between;
   background: #181c24;
   border: 1px solid #262c38;
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
+  border-radius: 12px;
+  padding: 14px 20px;
+  margin-bottom: 16px;
 }}
 .top-title h1 {{
-  font-size: 17px;
-  margin: 0 0 2px;
+  font-size: 20px;
+  margin: 0 0 3px;
   color: #fff;
 }}
 .top-title p {{
   margin: 0;
-  font-size: 11px;
+  font-size: 13px;
   color: #9aa5b4;
 }}
 .ver-pill {{
@@ -151,84 +163,84 @@ body {{
   color: #e29425;
   border: 1px solid rgba(226, 148, 37, 0.45);
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
+  padding: 6px 14px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
 }}
 .card {{
   background: #181c24;
   border: 1px solid #262c38;
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }}
 .step-hdr {{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }}
 .step-title {{
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   color: #e29425;
   margin: 0;
 }}
 .step-sub {{
-  font-size: 11px;
+  font-size: 12px;
   color: #8b96a8;
 }}
 .ap-guide {{
   background: #12161d;
   border-left: 3px solid #00acc1;
   border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 10px;
-  font-size: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
   color: #cfd6e0;
-  line-height: 1.45;
+  line-height: 1.5;
 }}
 .ap-guide strong {{ color: #fff; }}
 .ap-guide code {{
   background: #222834;
   color: #e29425;
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
 }}
 .row {{
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
 }}
 .input-ip {{
   flex: 1;
-  height: 36px;
+  height: 40px;
   background: #101318;
   border: 1px solid #323a4a;
   border-radius: 6px;
   color: #fff;
-  padding: 0 10px;
-  font-size: 14px;
+  padding: 0 12px;
+  font-size: 15px;
   font-weight: 600;
 }}
 .chips {{
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 10px;
   flex-wrap: wrap;
 }}
 .chip {{
   background: #222834;
   color: #b8c2d0;
   border: 1px solid #323a4a;
-  border-radius: 5px;
-  padding: 4px 8px;
-  font-size: 11px;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }}
@@ -237,32 +249,34 @@ body {{
   color: #fff;
 }}
 .device-banner {{
-  margin-top: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
   background: #101318;
   border: 1px solid #252b37;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 6px;
 }}
 .dot {{
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: #6c7686;
-  margin-right: 6px;
+  margin-right: 7px;
 }}
 .dot.online {{ background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }}
 .btn {{
   background: #00acc1;
   color: #fff;
   border: none;
-  border-radius: 6px;
-  padding: 9px 12px;
-  font-size: 12px;
+  border-radius: 7px;
+  padding: 10px 14px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -276,77 +290,83 @@ body {{
 .btn-orange {{ background: #e29425; color: #101318; }}
 .btn-green {{ background: #27ae60; color: #fff; }}
 .btn-secondary {{ background: #2d3545; color: #dde3ea; }}
-.btn-block {{ width: 100%; padding: 11px; font-size: 13px; }}
+.btn-block {{ width: 100%; padding: 13px; font-size: 14px; }}
 .form-grid {{
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 10px;
-  margin-top: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 14px;
+  margin-top: 12px;
+}}
+@media (max-width: 720px) {{
+  .form-grid {{
+    grid-template-columns: 1fr 1fr;
+  }}
 }}
 .field {{
   display: flex;
   flex-direction: column;
 }}
 .field label {{
-  font-size: 11px;
+  font-size: 12px;
   color: #9aa5b4;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   font-weight: 600;
 }}
 .field input, .field select {{
-  height: 32px;
+  height: 36px;
   background: #101318;
   border: 1px solid #303846;
-  border-radius: 5px;
+  border-radius: 6px;
   color: #fff;
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 10px;
+  font-size: 13px;
 }}
 .pwd-wrap {{
   display: flex;
-  gap: 4px;
+  gap: 5px;
 }}
-.pwd-wrap input {{ flex: 1; }}
+.pwd-wrap input {{ flex: 1; min-width: 0; }}
 .btn-tiny {{
   background: #283040;
   color: #cfd6e0;
   border: 1px solid #384357;
-  border-radius: 5px;
-  padding: 0 8px;
-  font-size: 11px;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 12px;
   cursor: pointer;
 }}
 details.json-preview {{
-  margin-top: 10px;
+  margin-top: 14px;
   background: #101318;
   border: 1px solid #252b37;
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 8px 12px;
 }}
 details.json-preview summary {{
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #9aa5b4;
 }}
 details.json-preview pre {{
   margin: 8px 0 2px;
-  font-size: 11px;
+  font-size: 12px;
   color: #88c0d0;
   overflow-x: auto;
 }}
 .progress-box {{
-  background: #101318;
+  background: #181c24;
   border: 1px solid #262c38;
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }}
 .bar-bg {{
   background: #252b37;
-  height: 10px;
-  border-radius: 5px;
+  height: 12px;
+  border-radius: 6px;
   overflow: hidden;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }}
 .bar-fill {{
   background: linear-gradient(90deg, #00acc1, #e29425);
@@ -357,28 +377,28 @@ details.json-preview pre {{
 .status-line {{
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #d8dee9;
 }}
 .log-area {{
-  margin-top: 8px;
+  margin-top: 10px;
   background: #0b0d11;
   border: 1px solid #222834;
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 10px 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: 12px;
   color: #a3be8c;
-  max-height: 140px;
+  height: 190px;
   overflow-y: auto;
   white-space: pre-wrap;
 }}
 .footer {{
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   color: #6c7686;
-  margin-top: 12px;
+  margin-top: 16px;
 }}
 </style>
 </head>
@@ -392,187 +412,196 @@ details.json-preview pre {{
     <span class="ver-pill" id="lblPkgVer">{version_str}</span>
   </div>
 
-  <!-- STEP 1: CONNECT & READ SETTINGS -->
-  <div class="card">
-    <div class="step-hdr">
-      <h2 class="step-title">Step 1 — Connect to Device AP &amp; Read Settings</h2>
-      <span class="step-sub">Wi-Fi Hotspot or LAN</span>
-    </div>
-    <div class="ap-guide">
-      1. Connect Wi-Fi to the controller's Hotspot AP (e.g. <strong>esp32-AirUpDownController</strong>, password <code>12345678</code>) or LAN.<br>
-      2. Click <strong>Read Device</strong>. <em>(If opened as a raw <code>file://</code> on old firmware without CORS, click <strong>1. Download settings.json</strong> then <strong>2. Load settings.json File</strong>.)</em>
-    </div>
-    <div class="row">
-      <input type="text" id="targetIp" class="input-ip" value="192.168.4.1" />
-      <button type="button" class="btn" onclick="readFromDevice()">Read Device</button>
-      <button type="button" class="btn btn-secondary" onclick="openWebUI()">Open UI</button>
-    </div>
-    <div class="row" style="margin-top:8px;">
-      <button type="button" class="btn btn-secondary" style="flex:1;" onclick="downloadDeviceSettingsJson()">1. Download settings.json</button>
-      <button type="button" class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('fileSettingsInput').click()">2. Load settings.json File</button>
-      <input type="file" id="fileSettingsInput" accept=".json,application/json" style="display:none" onchange="onLoadSettingsFile(this)" />
-    </div>
-    <div class="chips">
-      <button type="button" class="chip" onclick="selectIp('192.168.4.1')">AP Hotspot (192.168.4.1)</button>
-      <button type="button" class="chip" onclick="selectIp('192.168.10.161')">Raptor (.161)</button>
-      <button type="button" class="chip" onclick="selectIp('192.168.10.134')">Landrover (.134)</button>
-      <button type="button" class="chip" onclick="selectIp('192.168.10.153')">TestBench (.153)</button>
-    </div>
-    <div class="device-banner">
-      <div><span class="dot" id="connDot"></span><strong id="connName">Not connected yet</strong></div>
-      <div id="connVer" style="color:#8b96a8;">Click "Read Device" or load settings.json</div>
-    </div>
-  </div>
-
-  <!-- STEP 2: UPLOAD FIRMWARE / SPIFFS.BIN -->
-  <div class="card">
-    <div class="step-hdr">
-      <h2 class="step-title">Step 2 — Flash Firmware &amp; SPIFFS Image</h2>
-      <span class="step-sub" id="lblFwSize">firmware.bin + spiffs.bin embedded</span>
-    </div>
-    <button type="button" id="btnFw" class="btn btn-orange btn-block" onclick="uploadFirmwareOnly()">
-      Upload Firmware (firmware.bin — {version_str})
-    </button>
-    <div class="row" style="margin-top:8px;">
-      <button type="button" id="btnSpiffsAndSettings" class="btn" style="flex:1;" onclick="uploadSpiffsImage(true)">
-        Upload spiffs.bin + Restore settings.json
-      </button>
-      <button type="button" id="btnSpiffsOnly" class="btn btn-secondary" style="flex:1;" onclick="uploadSpiffsImage(false)">
-        Upload spiffs.bin Only
-      </button>
-    </div>
-  </div>
-
-  <!-- STEP 3: STATIC FILES + REBUILD SETTINGS.JSON -->
-  <div class="card">
-    <div class="step-hdr">
-      <h2 class="step-title">Step 3 — Static Files &amp; Rebuild settings.json</h2>
-      <span class="step-sub">6 Web UI files + 18-key settings.json</span>
-    </div>
-
-    <div class="chips" style="margin-top:0; margin-bottom:8px;">
-      <span style="font-size:11px; color:#8b96a8; align-self:center;">Presets:</span>
-      <button type="button" class="chip" onclick="applyPreset('default')">Default (16/17/34)</button>
-      <button type="button" class="chip" onclick="applyPreset('raptor')">Raptor (17/16/32)</button>
-      <button type="button" class="chip" onclick="applyPreset('landrover')">Landrover (16/17/34)</button>
-    </div>
-
-    <div class="form-grid">
-      <div class="field">
-        <label>Device Name</label>
-        <input type="text" id="cfg_DeviceName" value="esp32-AirUpDownController" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Wi-Fi SSID</label>
-        <input type="text" id="cfg_wifissid" value="" placeholder="Home / Vehicle Wi-Fi" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Wi-Fi Password</label>
-        <div class="pwd-wrap">
-          <input type="password" id="cfg_wifipassword" value="" oninput="refreshJsonPreview()" />
-          <button type="button" class="btn-tiny" onclick="togglePwd('cfg_wifipassword', this)">Show</button>
+  <div class="dashboard-grid">
+    <div class="left-col">
+      <!-- STEP 1: CONNECT & READ SETTINGS -->
+      <div class="card">
+        <div class="step-hdr">
+          <h2 class="step-title">Step 1 — Connect to Device AP &amp; Read Settings</h2>
+          <span class="step-sub">Wi-Fi Hotspot or LAN</span>
+        </div>
+        <div class="ap-guide">
+          1. Connect Wi-Fi to the controller's Hotspot AP (e.g. <strong>esp32-AirUpDownController</strong>, password <code>12345678</code>) or LAN.<br>
+          2. Click <strong>Read Device</strong>. <em>(If opened as a raw <code>file://</code> on old firmware without CORS, click <strong>1. Download settings.json</strong> then <strong>2. Load settings.json File</strong>.)</em>
+        </div>
+        <div class="row">
+          <input type="text" id="targetIp" class="input-ip" value="192.168.4.1" />
+          <button type="button" class="btn" onclick="readFromDevice()">Read Device</button>
+          <button type="button" class="btn btn-secondary" onclick="openWebUI()">Open UI</button>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <button type="button" class="btn btn-secondary" style="flex:1;" onclick="downloadDeviceSettingsJson()">1. Download settings.json</button>
+          <button type="button" class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('fileSettingsInput').click()">2. Load settings.json File</button>
+          <input type="file" id="fileSettingsInput" accept=".json,application/json" style="display:none" onchange="onLoadSettingsFile(this)" />
+        </div>
+        <div class="chips">
+          <button type="button" class="chip" onclick="selectIp('192.168.4.1')">AP Hotspot (192.168.4.1)</button>
+          <button type="button" class="chip" onclick="selectIp('192.168.10.161')">Raptor (.161)</button>
+          <button type="button" class="chip" onclick="selectIp('192.168.10.134')">Landrover (.134)</button>
+          <button type="button" class="chip" onclick="selectIp('192.168.10.153')">TestBench (.153)</button>
+        </div>
+        <div class="device-banner">
+          <div><span class="dot" id="connDot"></span><strong id="connName">Not connected yet</strong></div>
+          <div id="connVer" style="color:#8b96a8;">Click "Read Device" or load settings.json</div>
         </div>
       </div>
-      <div class="field">
-        <label>Hotspot AP Password (min 8)</label>
-        <div class="pwd-wrap">
-          <input type="password" id="cfg_AccessPointPassword" value="12345678" oninput="refreshJsonPreview()" />
-          <button type="button" class="btn-tiny" onclick="togglePwd('cfg_AccessPointPassword', this)">Show</button>
+
+      <!-- STEP 2: UPLOAD FIRMWARE / SPIFFS.BIN -->
+      <div class="card">
+        <div class="step-hdr">
+          <h2 class="step-title">Step 2 — Flash Firmware &amp; SPIFFS Image</h2>
+          <span class="step-sub" id="lblFwSize">firmware.bin + spiffs.bin embedded</span>
+        </div>
+        <button type="button" id="btnFw" class="btn btn-orange btn-block" onclick="uploadFirmwareOnly()">
+          Upload Firmware (firmware.bin — {version_str})
+        </button>
+        <div class="row" style="margin-top:8px;">
+          <button type="button" id="btnSpiffsAndSettings" class="btn" style="flex:1;" onclick="uploadSpiffsImage(true)">
+            Upload spiffs.bin + Restore settings.json
+          </button>
+          <button type="button" id="btnSpiffsOnly" class="btn btn-secondary" style="flex:1;" onclick="uploadSpiffsImage(false)">
+            Upload spiffs.bin Only
+          </button>
         </div>
       </div>
-      <div class="field">
-        <label>Relay Compressor Pin</label>
-        <input type="number" id="cfg_RelayCompressorPin" value="16" oninput="refreshJsonPreview()" />
+
+      <!-- PROGRESS & LOG -->
+      <div class="progress-box">
+        <div class="step-hdr" style="margin-bottom:8px;">
+          <h2 class="step-title">Upgrade Progress &amp; Activity Log</h2>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" id="progBar"></div></div>
+        <div class="status-line">
+          <span id="progText">Ready</span>
+          <span id="progPct">0%</span>
+        </div>
+        <div class="log-area" id="logBox"></div>
       </div>
-      <div class="field">
-        <label>Relay Free (Deflate) Pin</label>
-        <input type="number" id="cfg_RelayFreePin" value="17" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Sensor Pin (ADC1: 32–39)</label>
-        <input type="number" id="cfg_SensorPin" value="34" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Calc Method (1=ADC, 2=Volt)</label>
-        <select id="cfg_PressureCalcMethod" onchange="refreshJsonPreview()">
-          <option value="1">1 — ADC Counts</option>
-          <option value="2" selected>2 — Voltage Divider</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Sensor Value @ 0 PSI</label>
-        <input type="number" step="0.001" id="cfg_SensorValueAt0PSI" value="0.120" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Sensor Value @ Full Scale</label>
-        <input type="number" step="0.001" id="cfg_SensorValueAt50PSI" value="1.460" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Sensor Full Scale (PSI)</label>
-        <input type="number" step="0.1" id="cfg_SensorFullScalePSI" value="50" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Precision (PSI)</label>
-        <input type="number" step="0.05" id="cfg_Precision" value="0.3" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Max Status Time (sec)</label>
-        <input type="number" id="cfg_MaxSecForStatus" value="30" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Measure Wait (sec)</label>
-        <input type="number" step="0.1" id="cfg_MessureWait" value="1.0" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Max Pressure (PSI)</label>
-        <input type="number" step="0.5" id="cfg_MaxPressurePSI" value="50" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>Max Valve Open (sec)</label>
-        <input type="number" id="cfg_MaxValveOpenSec" value="120" oninput="refreshJsonPreview()" />
-      </div>
-      <div class="field">
-        <label>BLE Access Code (optional)</label>
-        <div class="pwd-wrap">
-          <input type="password" id="cfg_AccessCode" value="" placeholder="Unlocked if empty" oninput="refreshJsonPreview()" />
-          <button type="button" class="btn-tiny" onclick="togglePwd('cfg_AccessCode', this)">Show</button>
+    </div>
+
+    <div class="right-col">
+      <!-- STEP 3: STATIC FILES + REBUILD SETTINGS.JSON -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="step-hdr">
+          <h2 class="step-title">Step 3 — Static Files &amp; Rebuild settings.json</h2>
+          <span class="step-sub">6 Web UI files + 18-key settings.json</span>
+        </div>
+
+        <div class="chips" style="margin-top:0; margin-bottom:10px;">
+          <span style="font-size:12px; color:#8b96a8; align-self:center;">Presets:</span>
+          <button type="button" class="chip" onclick="applyPreset('default')">Default (16/17/34)</button>
+          <button type="button" class="chip" onclick="applyPreset('raptor')">Raptor (17/16/32)</button>
+          <button type="button" class="chip" onclick="applyPreset('landrover')">Landrover (16/17/34)</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label>Device Name</label>
+            <input type="text" id="cfg_DeviceName" value="esp32-AirUpDownController" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Wi-Fi SSID</label>
+            <input type="text" id="cfg_wifissid" value="" placeholder="Home / Vehicle Wi-Fi" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Wi-Fi Password</label>
+            <div class="pwd-wrap">
+              <input type="password" id="cfg_wifipassword" value="" oninput="refreshJsonPreview()" />
+              <button type="button" class="btn-tiny" onclick="togglePwd('cfg_wifipassword', this)">Show</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Hotspot AP Password (min 8)</label>
+            <div class="pwd-wrap">
+              <input type="password" id="cfg_AccessPointPassword" value="12345678" oninput="refreshJsonPreview()" />
+              <button type="button" class="btn-tiny" onclick="togglePwd('cfg_AccessPointPassword', this)">Show</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Relay Compressor Pin</label>
+            <input type="number" id="cfg_RelayCompressorPin" value="16" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Relay Free (Deflate) Pin</label>
+            <input type="number" id="cfg_RelayFreePin" value="17" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Sensor Pin (ADC1: 32–39)</label>
+            <input type="number" id="cfg_SensorPin" value="34" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Calc Method (1=ADC, 2=Volt)</label>
+            <select id="cfg_PressureCalcMethod" onchange="refreshJsonPreview()">
+              <option value="1">1 — ADC Counts</option>
+              <option value="2" selected>2 — Voltage Divider</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Sensor Value @ 0 PSI</label>
+            <input type="number" step="0.001" id="cfg_SensorValueAt0PSI" value="0.120" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Sensor Value @ Full Scale</label>
+            <input type="number" step="0.001" id="cfg_SensorValueAt50PSI" value="1.460" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Sensor Full Scale (PSI)</label>
+            <input type="number" step="0.1" id="cfg_SensorFullScalePSI" value="50" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Precision (PSI)</label>
+            <input type="number" step="0.05" id="cfg_Precision" value="0.3" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Max Status Time (sec)</label>
+            <input type="number" id="cfg_MaxSecForStatus" value="30" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Measure Wait (sec)</label>
+            <input type="number" step="0.1" id="cfg_MessureWait" value="1.0" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Max Pressure (PSI)</label>
+            <input type="number" step="0.5" id="cfg_MaxPressurePSI" value="50" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>Max Valve Open (sec)</label>
+            <input type="number" id="cfg_MaxValveOpenSec" value="120" oninput="refreshJsonPreview()" />
+          </div>
+          <div class="field">
+            <label>BLE Access Code (optional)</label>
+            <div class="pwd-wrap">
+              <input type="password" id="cfg_AccessCode" value="" placeholder="Unlocked if empty" oninput="refreshJsonPreview()" />
+              <button type="button" class="btn-tiny" onclick="togglePwd('cfg_AccessCode', this)">Show</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Simulation Mode</label>
+            <select id="cfg_SimulationMode" onchange="refreshJsonPreview()">
+              <option value="false" selected>Off (Real Sensor)</option>
+              <option value="true">On (Simulation)</option>
+            </select>
+          </div>
+        </div>
+
+        <details class="json-preview" open>
+          <summary>Preview Rebuilt settings.json (18 validated keys)</summary>
+          <pre id="jsonPreviewBox"></pre>
+        </details>
+
+        <button type="button" id="btnStaticAndSettings" class="btn btn-green btn-block" style="margin-top:12px;" onclick="uploadStaticAndRebuiltSettings(true)">
+          Upload Static Files + Rebuilt settings.json
+        </button>
+        <div class="row" style="margin-top:8px;">
+          <button type="button" id="btnSettingsOnly" class="btn btn-secondary" style="flex:1;" onclick="uploadRebuiltSettingsOnly()">
+            Deploy Rebuilt settings.json Only
+          </button>
+          <button type="button" id="btnStaticOnly" class="btn btn-secondary" style="flex:1;" onclick="uploadStaticAndRebuiltSettings(false)">
+            Upload Static Files Only
+          </button>
         </div>
       </div>
-      <div class="field">
-        <label>Simulation Mode</label>
-        <select id="cfg_SimulationMode" onchange="refreshJsonPreview()">
-          <option value="false" selected>Off (Real Sensor)</option>
-          <option value="true">On (Simulation)</option>
-        </select>
-      </div>
     </div>
-
-    <details class="json-preview">
-      <summary>Preview Rebuilt settings.json (18 validated keys)</summary>
-      <pre id="jsonPreviewBox"></pre>
-    </details>
-
-    <button type="button" id="btnStaticAndSettings" class="btn btn-green btn-block" style="margin-top:10px;" onclick="uploadStaticAndRebuiltSettings(true)">
-      Upload Static Files + Rebuilt settings.json
-    </button>
-    <div class="row" style="margin-top:8px;">
-      <button type="button" id="btnSettingsOnly" class="btn btn-secondary" style="flex:1;" onclick="uploadRebuiltSettingsOnly()">
-        Deploy Rebuilt settings.json Only
-      </button>
-      <button type="button" id="btnStaticOnly" class="btn btn-secondary" style="flex:1;" onclick="uploadStaticAndRebuiltSettings(false)">
-        Upload Static Files Only
-      </button>
-    </div>
-  </div>
-
-  <!-- PROGRESS & LOG -->
-  <div class="progress-box">
-    <div class="bar-bg"><div class="bar-fill" id="progBar"></div></div>
-    <div class="status-line">
-      <span id="progText">Ready</span>
-      <span id="progPct">0%</span>
-    </div>
-    <div class="log-area" id="logBox"></div>
   </div>
 
   <div class="footer">&copy; 2026 Nir Azulay — Open-Source DIY Tire Air Pressure System</div>
