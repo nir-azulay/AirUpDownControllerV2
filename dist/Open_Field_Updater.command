@@ -29,12 +29,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             ip = qs.get("ip", ["192.168.4.1"])[0]
             result = {"settingsValues": None, "settingsJson": None}
             try:
-                with urllib.request.urlopen(f"http://{ip}/settingsValues", timeout=3.5) as r:
+                with urllib.request.urlopen(f"http://{ip}/settingsValues", timeout=2.0) as r:
                     result["settingsValues"] = r.read().decode("utf-8", errors="replace").strip()
             except Exception:
                 pass
             try:
-                with urllib.request.urlopen(f"http://{ip}/settings.json", timeout=3.5) as r:
+                with urllib.request.urlopen(f"http://{ip}/settings.json", timeout=2.0) as r:
                     raw_json = r.read().decode("utf-8", errors="replace").strip()
                     result["settingsJson"] = json.loads(raw_json)
             except Exception:
@@ -56,9 +56,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 if __name__ == "__main__":
-    socketserver.TCPServer.allow_reuse_address = True
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
     try:
-        httpd = socketserver.TCPServer(("127.0.0.1", PORT), Handler)
+        httpd = socketserver.ThreadingTCPServer(("127.0.0.1", PORT), Handler)
         url = f"http://127.0.0.1:{PORT}/OfflineFieldUpdater.html"
         print(f"Field Updater UI running at {url}")
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()

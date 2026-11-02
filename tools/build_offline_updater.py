@@ -851,14 +851,24 @@ function refreshJsonPreview() {{
   document.getElementById("jsonPreviewBox").textContent = JSON.stringify(obj, null, 2);
 }}
 
-async function readFromDevice() {{
+async function fetchWithTimeout(url, options = {{}}, timeoutMs = 2500) {{
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {{
+    return await fetch(url, {{ ...options, signal: controller.signal }});
+  }} finally {{
+    clearTimeout(id);
+  }}
+}}
+
+async function readFromDevice(isAfterReboot = false) {{
   const ip = getIp();
   const baseUrl = "http://" + ip;
   logMsg("Reading settings from " + baseUrl + " ...");
 
   // 1. Try local helper proxy first (bypasses CORS on all firmware versions)
   try {{
-    const proxyResp = await fetch("http://127.0.0.1:8765/api/read?ip=" + encodeURIComponent(ip), {{ cache: "no-store" }});
+    const proxyResp = await fetchWithTimeout("http://127.0.0.1:8765/api/read?ip=" + encodeURIComponent(ip), {{ cache: "no-store" }}, 4500);
     if (proxyResp.ok) {{
       const data = await proxyResp.json();
       let loaded = false;
@@ -868,37 +878,44 @@ async function readFromDevice() {{
       if (data.settingsJson && typeof data.settingsJson === "object") {{
         loaded = applySettingsJsonObject(data.settingsJson, ip + "/settings.json") || loaded;
       }}
-      if (loaded) return;
+      if (loaded) return true;
     }}
   }} catch (_) {{}}
 
-  // 2. Try direct fetch of /settings.json and /settingsValues from browser
+  // 2. Try direct fetch of /settings.json and /settingsValues from browser with 2.5s timeout
   try {{
-    const jsonResp = await fetch(baseUrl + "/settings.json", {{ cache: "no-store" }});
+    const jsonResp = await fetchWithTimeout(baseUrl + "/settings.json", {{ cache: "no-store" }}, 2500);
     if (jsonResp.ok) {{
       const obj = await jsonResp.json();
       if (applySettingsJsonObject(obj, ip + "/settings.json")) {{
         try {{
-          const svResp = await fetch(baseUrl + "/settingsValues", {{ cache: "no-store" }});
+          const svResp = await fetchWithTimeout(baseUrl + "/settingsValues", {{ cache: "no-store" }}, 2500);
           if (svResp.ok) applySettingsValuesString(await svResp.text(), ip);
         }} catch (_) {{}}
-        return;
+        return true;
       }}
     }}
   }} catch (_) {{}}
 
   try {{
-    const svResp = await fetch(baseUrl + "/settingsValues", {{ cache: "no-store" }});
+    const svResp = await fetchWithTimeout(baseUrl + "/settingsValues", {{ cache: "no-store" }}, 2500);
     if (svResp.ok) {{
       const text = await svResp.text();
-      if (applySettingsValuesString(text, ip)) return;
+      if (applySettingsValuesString(text, ip)) return true;
     }}
   }} catch (_) {{}}
 
   document.getElementById("connDot").className = "dot";
-  document.getElementById("connName").textContent = "Browser CORS blocked direct read on " + ip;
-  document.getElementById("connVer").textContent = "Click '1. Download settings.json' -> '2. Load settings.json File'";
-  logMsg("! Browser blocked direct read from file:// because " + ip + " is on older firmware without CORS headers. Click '1. Download settings.json' then '2. Load settings.json File' (or open via Open_Field_Updater.command).");
+  if (isAfterReboot && ip === "192.168.4.1") {{
+    document.getElementById("connName").textContent = "Re-select Controller AP in Wi-Fi menu (" + ip + ")";
+    document.getElementById("connVer").textContent = "macOS may switch Wi-Fi when AP reboots — reconnect Wi-Fi, then continue";
+    logMsg("! Device rebooted! Your computer's Wi-Fi may have switched away from the controller AP during reboot. Re-select the controller's Wi-Fi AP in your Wi-Fi menu, then continue with SPIFFS / Static Files.");
+  }} else {{
+    document.getElementById("connName").textContent = "Device unreachable at " + ip;
+    document.getElementById("connVer").textContent = "Check Wi-Fi AP connection (or click 1. Download settings.json)";
+    logMsg("! Could not reach " + ip + ". Verify your Wi-Fi is connected to the controller AP.");
+  }}
+  return false;
 }}
 
 async function uploadBlobToDevice(baseUrl, endpoint, fieldName, filename, blob, onProgress) {{
@@ -951,9 +968,9 @@ async function uploadFirmwareOnly() {{
       logMsg("Old v0.1 firmware detected with SimulationMode=Off — temporarily enabling SimulationMode=1 so sensor loop doesn't block OTA...");
       setProgress(5, "Preparing device (enabling non-blocking mode for OTA)...");
       try {{
-        await fetch(baseUrl + "/updateSettings?SimulationMode=1", {{ mode: "no-cors" }});
+        await fetchWithTimeout(baseUrl + "/updateSettings?SimulationMode=1", {{ mode: "no-cors" }}, 3000);
       }} catch (_) {{}}
-      await new Promise(r => setTimeout(r, 6500));
+      await new Promise(r => setTimeout(r, 6000));
     }}
 
     logMsg("Uploading Firmware " + PACKAGE.version + " (firmware.bin) to " + baseUrl + "/doUpdate ...");
@@ -961,24 +978,17 @@ async function uploadFirmwareOnly() {{
     await uploadBlobToDevice(baseUrl, "/doUpdate", "update", "firmware.bin", fwBlob, (pct) => {{
       setProgress(pct, "Uploading Firmware (" + PACKAGE.version + ")...");
     }});
-    setProgress(100, "Firmware uploaded! Controller is rebooting (~7s)...");
-    logMsg("✓ Firmware " + PACKAGE.version + " uploaded! Waiting 7s for reboot...");
-    await new Promise(r => setTimeout(r, 7000));
-
-    if (isOldFirmware && wasSimOff) {{
-      logMsg("Restoring SimulationMode=Off...");
-      try {{
-        await fetch(baseUrl + "/updateSettings?SimulationMode=0", {{ mode: "no-cors" }});
-      }} catch (_) {{}}
-      await new Promise(r => setTimeout(r, 6000));
-    }}
-    await readFromDevice();
+    setProgress(100, "Firmware uploaded! Ready for Step 2 (SPIFFS) or Step 3 (Static Files).");
+    logMsg("✓ Firmware " + PACKAGE.version + " uploaded! Unlocking buttons immediately...");
   }} catch (err) {{
     logMsg("ERROR: " + err.message);
     setProgress(0, "Error: " + err.message);
-  }} finally {{
     setBusy(false);
+    return;
   }}
+  // Unlock all buttons immediately so the user is never stuck waiting for readFromDevice
+  setBusy(false);
+  setTimeout(() => readFromDevice(true), 6000);
 }}
 
 async function uploadSpiffsImage(restoreSettingsAfter) {{
@@ -991,28 +1001,28 @@ async function uploadSpiffsImage(restoreSettingsAfter) {{
     await uploadBlobToDevice(baseUrl, "/doUpdate", "update", "spiffs.bin", spiffsBlob, (pct) => {{
       setProgress(restoreSettingsAfter ? pct * 0.75 : pct, "Uploading spiffs.bin partition...");
     }});
-    logMsg("✓ spiffs.bin uploaded! Waiting 6.5s for controller to reboot...");
+    logMsg("✓ spiffs.bin uploaded! Waiting 6s for controller to reboot...");
     if (restoreSettingsAfter) {{
-      setProgress(80, "Controller rebooting after spiffs.bin (waiting 6.5s)...");
-      await new Promise(r => setTimeout(r, 6500));
+      setProgress(80, "Controller rebooting after spiffs.bin (waiting 6s)...");
+      await new Promise(r => setTimeout(r, 6000));
       const jsonStr = JSON.stringify(settingsObj, null, 2);
       const jsonBlob = new Blob([jsonStr], {{ type: "application/json" }});
       setProgress(90, "Redeploying rebuilt settings.json...");
       await uploadBlobToDevice(baseUrl, "/doUpload", "file", "/settings.json", jsonBlob);
       logMsg("✓ Rebuilt settings.json redeployed! Triggering reboot...");
-      fetch(baseUrl + "/reboot", {{ mode: "no-cors" }}).catch(() => {{}});
+      fetchWithTimeout(baseUrl + "/reboot", {{ mode: "no-cors" }}, 2500).catch(() => {{}});
       setProgress(100, "spiffs.bin + rebuilt settings.json deployed!");
-      setTimeout(() => readFromDevice(), 5500);
     }} else {{
       setProgress(100, "spiffs.bin uploaded! Controller is rebooting...");
-      setTimeout(() => readFromDevice(), 6500);
     }}
   }} catch (err) {{
     logMsg("ERROR: " + err.message);
     setProgress(0, "Error: " + err.message);
-  }} finally {{
     setBusy(false);
+    return;
   }}
+  setBusy(false);
+  setTimeout(() => readFromDevice(true), 5500);
 }}
 
 async function uploadRebuiltSettingsOnly() {{
@@ -1026,15 +1036,16 @@ async function uploadRebuiltSettingsOnly() {{
     setProgress(50, "Uploading rebuilt settings.json...");
     await uploadBlobToDevice(baseUrl, "/doUpload", "file", "/settings.json", jsonBlob);
     logMsg("✓ Rebuilt settings.json uploaded! Triggering reboot to apply...");
-    fetch(baseUrl + "/reboot", {{ mode: "no-cors" }}).catch(() => {{}});
+    fetchWithTimeout(baseUrl + "/reboot", {{ mode: "no-cors" }}, 2500).catch(() => {{}});
     setProgress(100, "settings.json deployed! Controller rebooting (~5s)...");
-    setTimeout(() => readFromDevice(), 5500);
   }} catch (err) {{
     logMsg("ERROR: " + err.message);
     setProgress(0, "Error: " + err.message);
-  }} finally {{
     setBusy(false);
+    return;
   }}
+  setBusy(false);
+  setTimeout(() => readFromDevice(true), 5500);
 }}
 
 async function uploadStaticAndRebuiltSettings(includeSettingsJson) {{
@@ -1063,9 +1074,9 @@ async function uploadStaticAndRebuiltSettings(includeSettingsJson) {{
       await uploadBlobToDevice(baseUrl, "/doUpload", "file", "/settings.json", jsonBlob);
       logMsg("  ✓ Uploaded rebuilt settings.json (" + jsonStr.length + " B)");
       logMsg("Triggering controller reboot to apply new settings.json...");
-      fetch(baseUrl + "/reboot", {{ mode: "no-cors" }}).catch(() => {{}});
+      fetchWithTimeout(baseUrl + "/reboot", {{ mode: "no-cors" }}, 2500).catch(() => {{}});
       setProgress(100, "All static files + settings.json deployed! Rebooting...");
-      setTimeout(() => readFromDevice(), 5500);
+      setTimeout(() => readFromDevice(true), 5500);
     }} else {{
       setProgress(100, "All " + files.length + " Web UI static files deployed!");
       logMsg("✓ All Web UI static files uploaded.");
@@ -1127,12 +1138,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             ip = qs.get("ip", ["192.168.4.1"])[0]
             result = {"settingsValues": None, "settingsJson": None}
             try:
-                with urllib.request.urlopen(f"http://{ip}/settingsValues", timeout=3.5) as r:
+                with urllib.request.urlopen(f"http://{ip}/settingsValues", timeout=2.0) as r:
                     result["settingsValues"] = r.read().decode("utf-8", errors="replace").strip()
             except Exception:
                 pass
             try:
-                with urllib.request.urlopen(f"http://{ip}/settings.json", timeout=3.5) as r:
+                with urllib.request.urlopen(f"http://{ip}/settings.json", timeout=2.0) as r:
                     raw_json = r.read().decode("utf-8", errors="replace").strip()
                     result["settingsJson"] = json.loads(raw_json)
             except Exception:
@@ -1154,9 +1165,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 if __name__ == "__main__":
-    socketserver.TCPServer.allow_reuse_address = True
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
     try:
-        httpd = socketserver.TCPServer(("127.0.0.1", PORT), Handler)
+        httpd = socketserver.ThreadingTCPServer(("127.0.0.1", PORT), Handler)
         url = f"http://127.0.0.1:{PORT}/OfflineFieldUpdater.html"
         print(f"Field Updater UI running at {url}")
         threading.Timer(0.4, lambda: webbrowser.open(url)).start()
