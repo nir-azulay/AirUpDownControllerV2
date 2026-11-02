@@ -182,6 +182,10 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
 
     if (!index)
     {
+        if (request && request->client()) {
+            request->client()->setRxTimeout(60);
+            request->client()->setAckTimeout(60000);
+        }
         if (Update.isRunning()) {
             Update.abort();
         }
@@ -193,16 +197,20 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
             Update.printError(Serial);
         }
     }
-    if (Update.write(data, len) != len)
+    if (len > 0)
     {
-        Update.printError(Serial);
-        Serial.printf("Progress: %d%%\n", (Update.progress() * 100) / Update.size());
-        printProgress(Update.progress(), Update.size());
+        if (Update.write(data, len) != len)
+        {
+            Update.printError(Serial);
+            size_t totalSz = Update.size() > 0 ? Update.size() : (content_len > 0 ? content_len : 1);
+            Serial.printf("Progress: %u%%\n", (unsigned int)((Update.progress() * 100) / totalSz));
+        }
     }
 
     if (final)
     {
         AsyncResponseStream *response = request->beginResponseStream("text/plain");
+        response->addHeader("Access-Control-Allow-Origin", "*");
         response->print("Ok");
         request->send(response);
         if (!Update.end(true))
@@ -230,6 +238,10 @@ void handleDoUpload(AsyncWebServerRequest *request, String filename, size_t inde
 
     if (!index)
     {
+        if (request && request->client()) {
+            request->client()->setRxTimeout(60);
+            request->client()->setAckTimeout(60000);
+        }
         content_len = request->contentLength();
         Serial.printf("UploadStart: %s (%u bytes)\n", cleanName.c_str(), (unsigned int)content_len);
         if (uploadFp) {
@@ -264,6 +276,7 @@ void handleDoUpload(AsyncWebServerRequest *request, String filename, size_t inde
         Serial.println("Upload complete");
         listDir(SPIFFS, "/", 0);
         AsyncResponseStream *response = request->beginResponseStream("text/plain");
+        response->addHeader("Access-Control-Allow-Origin", "*");
         response->print("Ok");
         request->send(response);
     }
@@ -271,7 +284,8 @@ void handleDoUpload(AsyncWebServerRequest *request, String filename, size_t inde
 
 void printProgress(size_t prg, size_t sz)
 {
-    int progress = ((prg * 100) / content_len);
+    size_t denom = (content_len > 0) ? content_len : (sz > 0 ? sz : 1);
+    int progress = ((prg * 100) / denom);
 
     if (progress % 10 == 0 && progress != backupProgress)
     {
@@ -543,6 +557,7 @@ void saveSettings(AsyncWebServerRequest *request)
 
     AsyncResponseStream *response = request->beginResponseStream("text/plain");
     response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    response->addHeader("Access-Control-Allow-Origin", "*");
     response->print("Ok");
     request->send(response);
 
@@ -599,6 +614,7 @@ void setupWebServer()
               {
                   AsyncResponseStream *response = request->beginResponseStream("text/plain");
                   response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
                   response->print(getSettingsParams("STATE"));
                   request->send(response);
               });
