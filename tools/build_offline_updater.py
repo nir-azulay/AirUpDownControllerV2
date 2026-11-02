@@ -862,50 +862,78 @@ async function readFromDevice() {{
   logMsg("! Browser blocked direct read from file:// because " + ip + " is on older firmware without CORS headers. Click '1. Download settings.json' then '2. Load settings.json File' (or open via Open_Field_Updater.command).");
 }}
 
-function uploadBlobToDevice(baseUrl, endpoint, fieldName, filename, blob, onProgress) {{
-  return new Promise((resolve, reject) => {{
-    const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append(fieldName, blob, filename);
+async function uploadBlobToDevice(baseUrl, endpoint, fieldName, filename, blob, onProgress) {{
+  const formData = new FormData();
+  formData.append(fieldName, blob, filename);
 
-    let maxPct = 0;
-    xhr.upload.addEventListener("progress", (evt) => {{
-      if (evt.lengthComputable && onProgress) {{
-        maxPct = (evt.loaded / evt.total) * 100;
-        onProgress(maxPct);
+  let timer = null;
+  let estPct = 3;
+  if (onProgress) {{
+    onProgress(estPct);
+    const stepMs = blob.size > 100000 ? 450 : 80;
+    timer = setInterval(() => {{
+      if (estPct < 95) {{
+        estPct += blob.size > 500000 ? 1.8 : 10;
+        onProgress(Math.min(95, estPct));
       }}
+    }}, stepMs);
+  }}
+
+  try {{
+    // Using fetch with mode: "no-cors" and FormData sends a simple POST request
+    // WITHOUT triggering an OPTIONS preflight (which older ESP32 firmware rejects with 404).
+    await fetch(baseUrl + endpoint, {{
+      method: "POST",
+      mode: "no-cors",
+      body: formData
     }});
-    xhr.addEventListener("load", () => {{
-      if (xhr.status >= 200 && xhr.status < 400) {{
-        resolve();
-      }} else {{
-        reject(new Error("HTTP " + xhr.status));
-      }}
-    }});
-    xhr.addEventListener("error", () => {{
-      if (endpoint === "/doUpload" || maxPct >= 95) {{
-        resolve();
-      }} else {{
-        reject(new Error("Upload interrupted at " + Math.round(maxPct) + "%"));
-      }}
-    }});
-    xhr.open("POST", baseUrl + endpoint);
-    xhr.send(formData);
-  }});
+    if (onProgress) onProgress(100);
+  }} catch (err) {{
+    // Note: ESP32 reboots immediately upon finishing /doUpdate, which may reset the final TCP ACK
+    if (endpoint === "/doUpdate" && estPct >= 75) {{
+      if (onProgress) onProgress(100);
+      return;
+    }}
+    throw err;
+  }} finally {{
+    if (timer) clearInterval(timer);
+  }}
 }}
 
 async function uploadFirmwareOnly() {{
   const baseUrl = getBaseUrl();
   setBusy(true);
   try {{
+    const wasSimOff = document.getElementById("cfg_SimulationMode").value === "false";
+    const connVerText = document.getElementById("connVer").textContent || "";
+    const isOldFirmware = connVerText.indexOf("v0.1.") >= 0;
+
+    if (isOldFirmware && wasSimOff) {{
+      logMsg("Old v0.1 firmware detected with SimulationMode=Off — temporarily enabling SimulationMode=1 so sensor loop doesn't block OTA...");
+      setProgress(5, "Preparing device (enabling non-blocking mode for OTA)...");
+      try {{
+        await fetch(baseUrl + "/updateSettings?SimulationMode=1", {{ mode: "no-cors" }});
+      }} catch (_) {{}}
+      await new Promise(r => setTimeout(r, 6500));
+    }}
+
     logMsg("Uploading Firmware " + PACKAGE.version + " (firmware.bin) to " + baseUrl + "/doUpdate ...");
     const fwBlob = b64ToBlob(PACKAGE.firmwareB64, "application/octet-stream");
     await uploadBlobToDevice(baseUrl, "/doUpdate", "update", "firmware.bin", fwBlob, (pct) => {{
       setProgress(pct, "Uploading Firmware (" + PACKAGE.version + ")...");
     }});
-    setProgress(100, "Firmware uploaded! Controller is rebooting (~6s)...");
-    logMsg("✓ Firmware " + PACKAGE.version + " uploaded! Waiting 6s for reboot...");
-    setTimeout(() => readFromDevice(), 6500);
+    setProgress(100, "Firmware uploaded! Controller is rebooting (~7s)...");
+    logMsg("✓ Firmware " + PACKAGE.version + " uploaded! Waiting 7s for reboot...");
+    await new Promise(r => setTimeout(r, 7000));
+
+    if (isOldFirmware && wasSimOff) {{
+      logMsg("Restoring SimulationMode=Off...");
+      try {{
+        await fetch(baseUrl + "/updateSettings?SimulationMode=0", {{ mode: "no-cors" }});
+      }} catch (_) {{}}
+      await new Promise(r => setTimeout(r, 6000));
+    }}
+    await readFromDevice();
   }} catch (err) {{
     logMsg("ERROR: " + err.message);
     setProgress(0, "Error: " + err.message);

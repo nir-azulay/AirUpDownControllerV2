@@ -296,6 +296,15 @@ void printProgress(size_t prg, size_t sz)
 
 void notFound(AsyncWebServerRequest *request)
 {
+    if (request->method() == HTTP_OPTIONS)
+    {
+        AsyncWebServerResponse *response = request->beginResponse(200);
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        response->addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        response->addHeader("Access-Control-Allow-Headers", "*");
+        request->send(response);
+        return;
+    }
     if (request->url().startsWith("/"))
     {
         bool isJsonOrText = request->url().endsWith(".json") || request->url().endsWith(".txt");
