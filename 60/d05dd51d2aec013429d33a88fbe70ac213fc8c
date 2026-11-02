@@ -1,0 +1,24 @@
+tools/build_offline_updater.py
+  s_d312b23a5c97c7::t_0a97ce9281d738 854-864,871,881,885,887,892,895,901,904,909-918,971,973,981-982,987,989-991,1004,1006-1007,1013,1022,1024-1025,1039,1045,1047-1048,1077,1079
+  s_d312b23a5c97c7::t_7efe782c572730 1141,1146,1168,1170
+dist/OfflineFieldUpdater.html
+  s_d312b23a5c97c7::t_2c971d95a907bd 513,746-756,763,773,777,779,784,787,793,796,801-810,863,865,873-874,879,881-883,896,898-899,905,914,916-917,931,937,939-940,969,971
+dist/Open_Field_Updater.command
+  s_d312b23a5c97c7::t_e7cdaa3057ad6b 32,37,59,61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "60d05dd51d2aec013429d33a88fbe70ac213fc8c",
+  "prompts": {},
+  "sessions": {
+    "s_d312b23a5c97c7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4073ab5b-854e-4e47-8475-abc551f21d7a",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
