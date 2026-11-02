@@ -123,17 +123,20 @@ body {{
   padding: 20px 24px 36px;
 }}
 .app-shell {{
-  max-width: 1340px;
+  max-width: 1440px;
   width: 100%;
   margin: 0 auto;
 }}
 .dashboard-grid {{
   display: grid;
-  grid-template-columns: 460px 1fr;
-  gap: 18px;
+  grid-template-columns: minmax(460px, 520px) minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }}
-@media (max-width: 960px) {{
+.left-col, .right-col {{
+  min-width: 0;
+}}
+@media (max-width: 1024px) {{
   .dashboard-grid {{
     grid-template-columns: 1fr;
   }}
@@ -175,11 +178,14 @@ body {{
   padding: 18px 20px;
   margin-bottom: 16px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }}
 .step-hdr {{
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   margin-bottom: 12px;
 }}
 .step-title {{
@@ -193,6 +199,7 @@ body {{
 .step-sub {{
   font-size: 12px;
   color: #8b96a8;
+  white-space: nowrap;
 }}
 .ap-guide {{
   background: #12161d;
@@ -214,11 +221,13 @@ body {{
 }}
 .row {{
   display: flex;
-  gap: 10px;
-  align-items: center;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
 }}
 .input-ip {{
   flex: 1;
+  min-width: 0;
   height: 40px;
   background: #101318;
   border: 1px solid #323a4a;
@@ -275,15 +284,16 @@ body {{
   color: #fff;
   border: none;
   border-radius: 7px;
-  padding: 10px 14px;
-  font-size: 13px;
+  padding: 10px 12px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   text-transform: uppercase;
   cursor: pointer;
   transition: opacity 0.15s;
-  white-space: nowrap;
   text-align: center;
+  line-height: 1.25;
+  min-width: 0;
 }}
 .btn:hover:enabled {{ opacity: 0.9; }}
 .btn:disabled {{ background: #2d3442; color: #6c7686; cursor: default; }}
@@ -417,12 +427,12 @@ details.json-preview pre {{
       <!-- STEP 1: CONNECT & READ SETTINGS -->
       <div class="card">
         <div class="step-hdr">
-          <h2 class="step-title">Step 1 — Connect to Device AP &amp; Read Settings</h2>
-          <span class="step-sub">Wi-Fi Hotspot or LAN</span>
+          <h2 class="step-title">Step 1 — Connect &amp; Read Device</h2>
+          <span class="step-sub">Wi-Fi Hotspot AP or LAN</span>
         </div>
         <div class="ap-guide">
           1. Connect Wi-Fi to the controller's Hotspot AP (e.g. <strong>esp32-AirUpDownController</strong>, password <code>12345678</code>) or LAN.<br>
-          2. Click <strong>Read Device</strong>. <em>(If opened as a raw <code>file://</code> on old firmware without CORS, click <strong>1. Download settings.json</strong> then <strong>2. Load settings.json File</strong>.)</em>
+          2. Click <strong>Read Device</strong>. <em>(If opened as a raw <code>file://</code> on old firmware without CORS, click <strong>1. Download settings.json</strong> then <strong>2. Load settings.json</strong>.)</em>
         </div>
         <div class="row">
           <input type="text" id="targetIp" class="input-ip" value="192.168.4.1" />
@@ -431,7 +441,7 @@ details.json-preview pre {{
         </div>
         <div class="row" style="margin-top:8px;">
           <button type="button" class="btn btn-secondary" style="flex:1;" onclick="downloadDeviceSettingsJson()">1. Download settings.json</button>
-          <button type="button" class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('fileSettingsInput').click()">2. Load settings.json File</button>
+          <button type="button" class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('fileSettingsInput').click()">2. Load settings.json</button>
           <input type="file" id="fileSettingsInput" accept=".json,application/json" style="display:none" onchange="onLoadSettingsFile(this)" />
         </div>
         <div class="chips">
@@ -449,15 +459,15 @@ details.json-preview pre {{
       <!-- STEP 2: UPLOAD FIRMWARE / SPIFFS.BIN -->
       <div class="card">
         <div class="step-hdr">
-          <h2 class="step-title">Step 2 — Flash Firmware &amp; SPIFFS Image</h2>
-          <span class="step-sub" id="lblFwSize">firmware.bin + spiffs.bin embedded</span>
+          <h2 class="step-title">Step 2 — Firmware &amp; SPIFFS Image</h2>
+          <span class="step-sub" id="lblFwSize">firmware.bin + spiffs.bin</span>
         </div>
         <button type="button" id="btnFw" class="btn btn-orange btn-block" onclick="uploadFirmwareOnly()">
-          Upload Firmware (firmware.bin — {version_str})
+          Upload Firmware ({version_str})
         </button>
         <div class="row" style="margin-top:8px;">
-          <button type="button" id="btnSpiffsAndSettings" class="btn" style="flex:1;" onclick="uploadSpiffsImage(true)">
-            Upload spiffs.bin + Restore settings.json
+          <button type="button" id="btnSpiffsAndSettings" class="btn" style="flex:1.4;" onclick="uploadSpiffsImage(true)">
+            Upload spiffs.bin + Restore Settings
           </button>
           <button type="button" id="btnSpiffsOnly" class="btn btn-secondary" style="flex:1;" onclick="uploadSpiffsImage(false)">
             Upload spiffs.bin Only
