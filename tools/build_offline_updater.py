@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
-Build the Offline Field Updater Package (`ble/dist/`):
-1. Compiles the latest ESP32 firmware (`pio run`) if `--build` is passed or `firmware.bin` is missing.
-2. Embeds `.pio/build/esp32/firmware.bin` and the 6 self-contained Web UI static files
-   (`index.html`, `configurations.html`, `update.html`, `fs.html`, `about.html`, `profile.jpg`)
-   into a single, compact, zero-dependency HTML application:
-     - `ble/dist/OfflineFieldUpdater.html`
-     - `ble/dist/Open_Field_Updater.command` (double-click launcher for macOS)
+Build the Independent Offline Field Updater Package (`ble/dist/`):
+1. Compiles `firmware.bin` (`pio run`) and `spiffs.bin` (`pio run -t buildfs`) if `--build` is passed.
+2. Copies standalone `firmware.bin` and `spiffs.bin` directly into `ble/dist/` (as well as `ble/dist/payload/`)
+   so `ble/dist/` is a 100% self-contained, portable folder.
+3. Generates:
+   - `ble/dist/OfflineFieldUpdater.html`: Compact 3-step UI with embedded `firmware.bin`, `spiffs.bin`,
+     and individual static files, plus `settings.json` downloader, file importer, and 18-key rebuilder.
+   - `ble/dist/Open_Field_Updater.command`: Double-clickable launcher that serves the UI on
+     `http://127.0.0.1:8765` and proxies `/api/read?ip=...` so "Read Device" bypasses browser `file://`
+     CORS restrictions even on older ESP32 firmware versions.
 """
 
 import base64
@@ -22,6 +25,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 FIRMWARE_BIN = ROOT_DIR / ".pio" / "build" / "esp32" / "firmware.bin"
+SPIFFS_BIN = ROOT_DIR / ".pio" / "build" / "esp32" / "spiffs.bin"
 VERSION_H = ROOT_DIR / "include" / "version.h"
 DIST_DIR = ROOT_DIR / "dist"
 PAYLOAD_DIR = DIST_DIR / "payload"
@@ -47,23 +51,34 @@ def get_version_short() -> str:
 
 def build_package(run_pio: bool = False) -> None:
     if run_pio or not FIRMWARE_BIN.exists():
-        print("Building ESP32 firmware with PlatformIO (`pio run`)...")
+        print("Building ESP32 firmware (`pio run`)...")
         subprocess.run(["pio", "run"], cwd=str(ROOT_DIR), check=True)
+    if run_pio or not SPIFFS_BIN.exists():
+        print("Building ESP32 SPIFFS image (`pio run -t buildfs`)...")
+        subprocess.run(["pio", "run", "-t", "buildfs"], cwd=str(ROOT_DIR), check=True)
 
     if not FIRMWARE_BIN.exists():
         raise FileNotFoundError(f"Firmware binary not found at {FIRMWARE_BIN}")
+    if not SPIFFS_BIN.exists():
+        raise FileNotFoundError(f"SPIFFS binary not found at {SPIFFS_BIN}")
 
     version_str = get_version_short()
     build_time = datetime.now().strftime("%Y-%m-%d %H:%M")
     fw_bytes = FIRMWARE_BIN.read_bytes()
     fw_b64 = base64.b64encode(fw_bytes).decode("ascii")
+    spiffs_bytes = SPIFFS_BIN.read_bytes()
+    spiffs_b64 = base64.b64encode(spiffs_bytes).decode("ascii")
 
     if PAYLOAD_DIR.exists():
         shutil.rmtree(PAYLOAD_DIR)
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     PAYLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Copy standalone firmware.bin and spiffs.bin directly into dist/ AND dist/payload/
+    shutil.copy2(FIRMWARE_BIN, DIST_DIR / "firmware.bin")
+    shutil.copy2(SPIFFS_BIN, DIST_DIR / "spiffs.bin")
     shutil.copy2(FIRMWARE_BIN, PAYLOAD_DIR / "firmware.bin")
+    shutil.copy2(SPIFFS_BIN, PAYLOAD_DIR / "spiffs.bin")
 
     embedded_files = []
     for fname in STATIC_FILES:
@@ -85,6 +100,8 @@ def build_package(run_pio: bool = False) -> None:
             "buildTime": build_time,
             "firmwareSize": len(fw_bytes),
             "firmwareB64": fw_b64,
+            "spiffsSize": len(spiffs_bytes),
+            "spiffsB64": spiffs_b64,
             "staticFiles": embedded_files,
         }
     )
@@ -106,7 +123,7 @@ body {{
   padding: 16px 12px 32px;
 }}
 .app-shell {{
-  max-width: 520px;
+  max-width: 540px;
   margin: 0 auto;
 }}
 .top-bar {{
@@ -244,7 +261,7 @@ body {{
   color: #fff;
   border: none;
   border-radius: 6px;
-  padding: 9px 14px;
+  padding: 9px 12px;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.4px;
@@ -252,6 +269,7 @@ body {{
   cursor: pointer;
   transition: opacity 0.15s;
   white-space: nowrap;
+  text-align: center;
 }}
 .btn:hover:enabled {{ opacity: 0.9; }}
 .btn:disabled {{ background: #2d3442; color: #6c7686; cursor: default; }}
@@ -268,9 +286,6 @@ body {{
 .field {{
   display: flex;
   flex-direction: column;
-}}
-.field.full {{
-  grid-column: span 2;
 }}
 .field label {{
   font-size: 11px;
@@ -355,7 +370,7 @@ details.json-preview pre {{
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   color: #a3be8c;
-  max-height: 130px;
+  max-height: 140px;
   overflow-y: auto;
   white-space: pre-wrap;
 }}
@@ -372,25 +387,30 @@ details.json-preview pre {{
   <div class="top-bar">
     <div class="top-title">
       <h1>ESP32 Offline Field Updater</h1>
-      <p>Direct AP &amp; Local Wi-Fi Upgrade Tool (No Internet Needed)</p>
+      <p>Direct AP &amp; Local Wi-Fi Upgrade Tool (100% Independent)</p>
     </div>
     <span class="ver-pill" id="lblPkgVer">{version_str}</span>
   </div>
 
-  <!-- STEP 1: CONNECT VIA AP -->
+  <!-- STEP 1: CONNECT & READ SETTINGS -->
   <div class="card">
     <div class="step-hdr">
-      <h2 class="step-title">Step 1 — Connect to Device AP</h2>
+      <h2 class="step-title">Step 1 — Connect to Device AP &amp; Read Settings</h2>
       <span class="step-sub">Wi-Fi Hotspot or LAN</span>
     </div>
     <div class="ap-guide">
-      1. On your laptop/phone, join the controller's Wi-Fi AP (e.g. <strong>esp32-AirUpDownController</strong> or vehicle name, password <code>12345678</code>).<br>
-      2. Keep IP as <code>192.168.4.1</code> (or pick a LAN IP) and click <strong>Read Device</strong>.
+      1. Connect Wi-Fi to the controller's Hotspot AP (e.g. <strong>esp32-AirUpDownController</strong>, password <code>12345678</code>) or LAN.<br>
+      2. Click <strong>Read Device</strong>. <em>(If opened as a raw <code>file://</code> on old firmware without CORS, click <strong>1. Download settings.json</strong> then <strong>2. Load settings.json File</strong>.)</em>
     </div>
     <div class="row">
       <input type="text" id="targetIp" class="input-ip" value="192.168.4.1" />
       <button type="button" class="btn" onclick="readFromDevice()">Read Device</button>
       <button type="button" class="btn btn-secondary" onclick="openWebUI()">Open UI</button>
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <button type="button" class="btn btn-secondary" style="flex:1;" onclick="downloadDeviceSettingsJson()">1. Download settings.json</button>
+      <button type="button" class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('fileSettingsInput').click()">2. Load settings.json File</button>
+      <input type="file" id="fileSettingsInput" accept=".json,application/json" style="display:none" onchange="onLoadSettingsFile(this)" />
     </div>
     <div class="chips">
       <button type="button" class="chip" onclick="selectIp('192.168.4.1')">AP Hotspot (192.168.4.1)</button>
@@ -400,30 +420,38 @@ details.json-preview pre {{
     </div>
     <div class="device-banner">
       <div><span class="dot" id="connDot"></span><strong id="connName">Not connected yet</strong></div>
-      <div id="connVer" style="color:#8b96a8;">Click "Read Device" to load current config</div>
+      <div id="connVer" style="color:#8b96a8;">Click "Read Device" or load settings.json</div>
     </div>
   </div>
 
-  <!-- STEP 2: UPLOAD FIRMWARE -->
+  <!-- STEP 2: UPLOAD FIRMWARE / SPIFFS.BIN -->
   <div class="card">
     <div class="step-hdr">
-      <h2 class="step-title">Step 2 — Firmware Upgrade</h2>
-      <span class="step-sub" id="lblFwSize">1.66 MB embedded</span>
+      <h2 class="step-title">Step 2 — Flash Firmware &amp; SPIFFS Image</h2>
+      <span class="step-sub" id="lblFwSize">firmware.bin + spiffs.bin embedded</span>
     </div>
     <button type="button" id="btnFw" class="btn btn-orange btn-block" onclick="uploadFirmwareOnly()">
-      Upload Firmware ({version_str})
+      Upload Firmware (firmware.bin — {version_str})
     </button>
+    <div class="row" style="margin-top:8px;">
+      <button type="button" id="btnSpiffsAndSettings" class="btn" style="flex:1;" onclick="uploadSpiffsImage(true)">
+        Upload spiffs.bin + Restore settings.json
+      </button>
+      <button type="button" id="btnSpiffsOnly" class="btn btn-secondary" style="flex:1;" onclick="uploadSpiffsImage(false)">
+        Upload spiffs.bin Only
+      </button>
+    </div>
   </div>
 
   <!-- STEP 3: STATIC FILES + REBUILD SETTINGS.JSON -->
   <div class="card">
     <div class="step-hdr">
       <h2 class="step-title">Step 3 — Static Files &amp; Rebuild settings.json</h2>
-      <span class="step-sub">6 Web UI files + settings.json</span>
+      <span class="step-sub">6 Web UI files + 18-key settings.json</span>
     </div>
 
     <div class="chips" style="margin-top:0; margin-bottom:8px;">
-      <span style="font-size:11px; color:#8b96a8; align-self:center;">Load Preset:</span>
+      <span style="font-size:11px; color:#8b96a8; align-self:center;">Presets:</span>
       <button type="button" class="chip" onclick="applyPreset('default')">Default (16/17/34)</button>
       <button type="button" class="chip" onclick="applyPreset('raptor')">Raptor (17/16/32)</button>
       <button type="button" class="chip" onclick="applyPreset('landrover')">Landrover (16/17/34)</button>
@@ -574,10 +602,13 @@ function setProgress(pct, text) {{
   if (text) document.getElementById("progText").textContent = text;
 }}
 
-function getBaseUrl() {{
+function getIp() {{
   let ip = document.getElementById("targetIp").value.trim();
-  ip = ip.replace(/^https?:\\/\\//, "").replace(/\\/.*$/, "");
-  return "http://" + ip;
+  return ip.replace(/^https?:\\/\\//, "").replace(/\\/.*$/, "");
+}}
+
+function getBaseUrl() {{
+  return "http://" + getIp();
 }}
 
 function selectIp(ip) {{
@@ -587,6 +618,109 @@ function selectIp(ip) {{
 
 function openWebUI() {{
   window.open(getBaseUrl() + "/", "_blank");
+}}
+
+function downloadDeviceSettingsJson() {{
+  const url = getBaseUrl() + "/settings.json";
+  logMsg("Opening " + url + " to download settings.json from device...");
+  window.open(url, "_blank");
+}}
+
+function onLoadSettingsFile(input) {{
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {{
+    try {{
+      const obj = JSON.parse(e.target.result);
+      applySettingsJsonObject(obj, file.name);
+    }} catch (err) {{
+      logMsg("ERROR parsing JSON file: " + err.message);
+    }}
+    input.value = "";
+  }};
+  reader.readAsText(file);
+}}
+
+function applySettingsJsonObject(obj, sourceLabel) {{
+  if (!obj || typeof obj !== "object") return false;
+  if (obj.DeviceName !== undefined) document.getElementById("cfg_DeviceName").value = obj.DeviceName;
+  if (obj.wifissid !== undefined) document.getElementById("cfg_wifissid").value = obj.wifissid;
+  if (obj.wifipassword !== undefined) document.getElementById("cfg_wifipassword").value = obj.wifipassword;
+  if (obj.RelayCompressorPin !== undefined) document.getElementById("cfg_RelayCompressorPin").value = obj.RelayCompressorPin;
+  if (obj.RelayFreePin !== undefined) document.getElementById("cfg_RelayFreePin").value = obj.RelayFreePin;
+  if (obj.SensorPin !== undefined) document.getElementById("cfg_SensorPin").value = obj.SensorPin;
+  if (obj.MaxSecForStatus !== undefined) document.getElementById("cfg_MaxSecForStatus").value = obj.MaxSecForStatus;
+  if (obj.SensorValueAt0PSI !== undefined) document.getElementById("cfg_SensorValueAt0PSI").value = Number(obj.SensorValueAt0PSI).toFixed(3);
+  if (obj.SensorValueAt50PSI !== undefined) document.getElementById("cfg_SensorValueAt50PSI").value = Number(obj.SensorValueAt50PSI).toFixed(3);
+  if (obj.AccessCode !== undefined) {{
+    document.getElementById("cfg_AccessCode").value = obj.AccessCode;
+  }} else if (obj.BTPinCode !== undefined && obj.BLESecurityEnabled) {{
+    document.getElementById("cfg_AccessCode").value = obj.BTPinCode;
+  }}
+  if (obj.MessureWait !== undefined) document.getElementById("cfg_MessureWait").value = obj.MessureWait;
+  if (obj.Precision !== undefined) document.getElementById("cfg_Precision").value = obj.Precision;
+  if (obj.SimulationMode !== undefined) {{
+    document.getElementById("cfg_SimulationMode").value = (obj.SimulationMode === true || obj.SimulationMode === 1 || obj.SimulationMode === "1" || obj.SimulationMode === "true") ? "true" : "false";
+  }}
+  if (obj.PressureCalcMethod !== undefined) {{
+    document.getElementById("cfg_PressureCalcMethod").value = String(obj.PressureCalcMethod);
+  }} else {{
+    // Auto-detect Method 2 if voltage values (< 5.0) are stored
+    const v50 = parseFloat(document.getElementById("cfg_SensorValueAt50PSI").value);
+    document.getElementById("cfg_PressureCalcMethod").value = (v50 > 0 && v50 <= 5.0) ? "2" : "1";
+  }}
+  if (obj.MaxPressurePSI !== undefined) document.getElementById("cfg_MaxPressurePSI").value = obj.MaxPressurePSI;
+  if (obj.MaxValveOpenSec !== undefined) document.getElementById("cfg_MaxValveOpenSec").value = obj.MaxValveOpenSec;
+  if (obj.SensorFullScalePSI !== undefined && parseFloat(obj.SensorFullScalePSI) > 0) {{
+    document.getElementById("cfg_SensorFullScalePSI").value = obj.SensorFullScalePSI;
+  }}
+  if (obj.AccessPointPassword !== undefined && String(obj.AccessPointPassword).length >= 8) {{
+    document.getElementById("cfg_AccessPointPassword").value = obj.AccessPointPassword;
+  }}
+
+  refreshJsonPreview();
+  const rebuilt = buildSettingsObject();
+  document.getElementById("connDot").className = "dot online";
+  document.getElementById("connName").textContent = rebuilt.DeviceName + " (" + sourceLabel + ")";
+  document.getElementById("connVer").textContent = "Pins: " + rebuilt.RelayCompressorPin + "/" + rebuilt.RelayFreePin + "/" + rebuilt.SensorPin + " | 0PSI=" + rebuilt.SensorValueAt0PSI + ", 50PSI=" + rebuilt.SensorValueAt50PSI;
+  logMsg("✓ Populated UI and rebuilt clean 18-key settings.json from " + sourceLabel + " (" + rebuilt.DeviceName + ").");
+  return true;
+}}
+
+function applySettingsValuesString(text, ip, optVer) {{
+  const a = text.trim().split(";");
+  if (a.length < 12) return false;
+  document.getElementById("cfg_DeviceName").value = a[0] || "esp32-AirUpDownController";
+  document.getElementById("cfg_wifissid").value = a[1] || "";
+  if (a[2]) document.getElementById("cfg_wifipassword").value = a[2];
+  document.getElementById("cfg_RelayCompressorPin").value = a[3] || 16;
+  document.getElementById("cfg_RelayFreePin").value = a[4] || 17;
+  document.getElementById("cfg_SensorPin").value = a[5] || 34;
+  document.getElementById("cfg_SimulationMode").value = (a[6] === "1" || a[6] === "true") ? "true" : "false";
+  document.getElementById("cfg_MaxSecForStatus").value = a[7] || 30;
+  document.getElementById("cfg_SensorValueAt0PSI").value = a[8] || 0.120;
+  document.getElementById("cfg_SensorValueAt50PSI").value = a[9] || 1.460;
+  if (a[10] && a[10] !== "0" && a[10] !== "1" && a[10] !== "1234") {{
+    document.getElementById("cfg_AccessCode").value = a[10];
+  }}
+  document.getElementById("cfg_MessureWait").value = a[11] || 1.0;
+  if (a[12]) document.getElementById("cfg_Precision").value = a[12];
+  if (a[13] === "1" || a[13] === "2") {{
+    document.getElementById("cfg_PressureCalcMethod").value = a[13];
+  }}
+  const ver = optVer || a[15] || a[14] || "Unknown";
+  if (a[16]) document.getElementById("cfg_MaxPressurePSI").value = a[16];
+  if (a[17]) document.getElementById("cfg_MaxValveOpenSec").value = a[17];
+  if (a[18] && parseFloat(a[18]) > 0) document.getElementById("cfg_SensorFullScalePSI").value = a[18];
+  if (a[19]) document.getElementById("cfg_AccessPointPassword").value = a[19];
+
+  refreshJsonPreview();
+  document.getElementById("connDot").className = "dot online";
+  document.getElementById("connName").textContent = a[0] + " (" + ip + ")";
+  document.getElementById("connVer").textContent = "Firmware: " + ver + " | Pins: " + a[3] + "/" + a[4] + "/" + a[5];
+  logMsg("✓ Loaded settings from '" + a[0] + "' (Firmware " + ver + ").");
+  return true;
 }}
 
 function togglePwd(id, btn) {{
@@ -601,8 +735,9 @@ function togglePwd(id, btn) {{
 }}
 
 function setBusy(busy) {{
-  ["btnFw", "btnStaticAndSettings", "btnSettingsOnly", "btnStaticOnly"].forEach(id => {{
-    document.getElementById(id).disabled = busy;
+  ["btnFw", "btnSpiffsAndSettings", "btnSpiffsOnly", "btnStaticAndSettings", "btnSettingsOnly", "btnStaticOnly"].forEach(id => {{
+    const el = document.getElementById(id);
+    if (el) el.disabled = busy;
   }});
 }}
 
@@ -678,62 +813,53 @@ function refreshJsonPreview() {{
 }}
 
 async function readFromDevice() {{
-  const ip = document.getElementById("targetIp").value.trim().replace(/^https?:\\/\\//, "").replace(/\\/.*$/, "");
+  const ip = getIp();
   const baseUrl = "http://" + ip;
-  logMsg("Reading current settings from " + baseUrl + " ...");
-  let text = "";
+  logMsg("Reading settings from " + baseUrl + " ...");
+
+  // 1. Try local helper proxy first (bypasses CORS on all firmware versions)
   try {{
-    const resp = await fetch(baseUrl + "/settingsValues", {{ cache: "no-store" }});
-    text = (await resp.text()).trim();
-  }} catch (directErr) {{
-    try {{
-      const proxyResp = await fetch("http://127.0.0.1:8765/api/read?ip=" + encodeURIComponent(ip), {{ cache: "no-store" }});
-      if (proxyResp.ok) {{
-        text = (await proxyResp.text()).trim();
+    const proxyResp = await fetch("http://127.0.0.1:8765/api/read?ip=" + encodeURIComponent(ip), {{ cache: "no-store" }});
+    if (proxyResp.ok) {{
+      const data = await proxyResp.json();
+      let loaded = false;
+      if (data.settingsValues && data.settingsValues.indexOf(";") >= 0) {{
+        loaded = applySettingsValuesString(data.settingsValues, ip);
       }}
-    }} catch (_) {{}}
-  }}
-
-  if (text && text.indexOf(";") >= 0) {{
-    const a = text.split(";");
-    if (a.length >= 13) {{
-      document.getElementById("cfg_DeviceName").value = a[0] || "esp32-AirUpDownController";
-      document.getElementById("cfg_wifissid").value = a[1] || "";
-      if (a[2]) document.getElementById("cfg_wifipassword").value = a[2];
-      document.getElementById("cfg_RelayCompressorPin").value = a[3] || 16;
-      document.getElementById("cfg_RelayFreePin").value = a[4] || 17;
-      document.getElementById("cfg_SensorPin").value = a[5] || 34;
-      document.getElementById("cfg_SimulationMode").value = (a[6] === "1" || a[6] === "true") ? "true" : "false";
-      document.getElementById("cfg_MaxSecForStatus").value = a[7] || 30;
-      document.getElementById("cfg_SensorValueAt0PSI").value = a[8] || 0.120;
-      document.getElementById("cfg_SensorValueAt50PSI").value = a[9] || 1.460;
-      if (a[10] && a[10] !== "0" && a[10] !== "1" && a[10] !== "1234") {{
-        document.getElementById("cfg_AccessCode").value = a[10];
+      if (data.settingsJson && typeof data.settingsJson === "object") {{
+        loaded = applySettingsJsonObject(data.settingsJson, ip + "/settings.json") || loaded;
       }}
-      document.getElementById("cfg_MessureWait").value = a[11] || 1.0;
-      document.getElementById("cfg_Precision").value = a[12] || 0.3;
-      if (a[13] === "1" || a[13] === "2") {{
-        document.getElementById("cfg_PressureCalcMethod").value = a[13];
-      }}
-      const ver = a[15] || a[14] || "Unknown";
-      if (a[16]) document.getElementById("cfg_MaxPressurePSI").value = a[16];
-      if (a[17]) document.getElementById("cfg_MaxValveOpenSec").value = a[17];
-      if (a[18] && parseFloat(a[18]) > 0) document.getElementById("cfg_SensorFullScalePSI").value = a[18];
-      if (a[19]) document.getElementById("cfg_AccessPointPassword").value = a[19];
-
-      document.getElementById("connDot").className = "dot online";
-      document.getElementById("connName").textContent = a[0] + " (" + ip + ")";
-      document.getElementById("connVer").textContent = "Firmware: " + ver + " | Pins: " + a[3] + "/" + a[4] + "/" + a[5];
-      refreshJsonPreview();
-      logMsg("✓ Loaded settings from '" + a[0] + "' (Firmware " + ver + ").");
-      return;
+      if (loaded) return;
     }}
-  }}
+  }} catch (_) {{}}
+
+  // 2. Try direct fetch of /settings.json and /settingsValues from browser
+  try {{
+    const jsonResp = await fetch(baseUrl + "/settings.json", {{ cache: "no-store" }});
+    if (jsonResp.ok) {{
+      const obj = await jsonResp.json();
+      if (applySettingsJsonObject(obj, ip + "/settings.json")) {{
+        try {{
+          const svResp = await fetch(baseUrl + "/settingsValues", {{ cache: "no-store" }});
+          if (svResp.ok) applySettingsValuesString(await svResp.text(), ip);
+        }} catch (_) {{}}
+        return;
+      }}
+    }}
+  }} catch (_) {{}}
+
+  try {{
+    const svResp = await fetch(baseUrl + "/settingsValues", {{ cache: "no-store" }});
+    if (svResp.ok) {{
+      const text = await svResp.text();
+      if (applySettingsValuesString(text, ip)) return;
+    }}
+  }} catch (_) {{}}
 
   document.getElementById("connDot").className = "dot";
-  document.getElementById("connName").textContent = "Ready to Upload to " + ip;
-  document.getElementById("connVer").textContent = "Select a preset or edit fields below, then click Upload";
-  logMsg("! Could not read /settingsValues from " + ip + " (if on older firmware without CORS, launch via Open_Field_Updater.command). Direct Firmware & Static uploads work from any browser.");
+  document.getElementById("connName").textContent = "Browser CORS blocked direct read on " + ip;
+  document.getElementById("connVer").textContent = "Click '1. Download settings.json' -> '2. Load settings.json File'";
+  logMsg("! Browser blocked direct read from file:// because " + ip + " is on older firmware without CORS headers. Click '1. Download settings.json' then '2. Load settings.json File' (or open via Open_Field_Updater.command).");
 }}
 
 function uploadBlobToDevice(baseUrl, endpoint, fieldName, filename, blob, onProgress) {{
@@ -772,7 +898,7 @@ async function uploadFirmwareOnly() {{
   const baseUrl = getBaseUrl();
   setBusy(true);
   try {{
-    logMsg("Uploading Firmware " + PACKAGE.version + " to " + baseUrl + "/doUpdate ...");
+    logMsg("Uploading Firmware " + PACKAGE.version + " (firmware.bin) to " + baseUrl + "/doUpdate ...");
     const fwBlob = b64ToBlob(PACKAGE.firmwareB64, "application/octet-stream");
     await uploadBlobToDevice(baseUrl, "/doUpdate", "update", "firmware.bin", fwBlob, (pct) => {{
       setProgress(pct, "Uploading Firmware (" + PACKAGE.version + ")...");
@@ -780,6 +906,40 @@ async function uploadFirmwareOnly() {{
     setProgress(100, "Firmware uploaded! Controller is rebooting (~6s)...");
     logMsg("✓ Firmware " + PACKAGE.version + " uploaded! Waiting 6s for reboot...");
     setTimeout(() => readFromDevice(), 6500);
+  }} catch (err) {{
+    logMsg("ERROR: " + err.message);
+    setProgress(0, "Error: " + err.message);
+  }} finally {{
+    setBusy(false);
+  }}
+}}
+
+async function uploadSpiffsImage(restoreSettingsAfter) {{
+  const baseUrl = getBaseUrl();
+  setBusy(true);
+  try {{
+    const settingsObj = buildSettingsObject();
+    logMsg("Uploading full SPIFFS image (spiffs.bin — " + Math.round(PACKAGE.spiffsSize / 1024) + " KB) to " + baseUrl + "/doUpdate ...");
+    const spiffsBlob = b64ToBlob(PACKAGE.spiffsB64, "application/octet-stream");
+    await uploadBlobToDevice(baseUrl, "/doUpdate", "update", "spiffs.bin", spiffsBlob, (pct) => {{
+      setProgress(restoreSettingsAfter ? pct * 0.75 : pct, "Uploading spiffs.bin partition...");
+    }});
+    logMsg("✓ spiffs.bin uploaded! Waiting 6.5s for controller to reboot...");
+    if (restoreSettingsAfter) {{
+      setProgress(80, "Controller rebooting after spiffs.bin (waiting 6.5s)...");
+      await new Promise(r => setTimeout(r, 6500));
+      const jsonStr = JSON.stringify(settingsObj, null, 2);
+      const jsonBlob = new Blob([jsonStr], {{ type: "application/json" }});
+      setProgress(90, "Redeploying rebuilt settings.json...");
+      await uploadBlobToDevice(baseUrl, "/doUpload", "file", "/settings.json", jsonBlob);
+      logMsg("✓ Rebuilt settings.json redeployed! Triggering reboot...");
+      fetch(baseUrl + "/reboot", {{ mode: "no-cors" }}).catch(() => {{}});
+      setProgress(100, "spiffs.bin + rebuilt settings.json deployed!");
+      setTimeout(() => readFromDevice(), 5500);
+    }} else {{
+      setProgress(100, "spiffs.bin uploaded! Controller is rebooting...");
+      setTimeout(() => readFromDevice(), 6500);
+    }}
   }} catch (err) {{
     logMsg("ERROR: " + err.message);
     setProgress(0, "Error: " + err.message);
@@ -852,9 +1012,11 @@ async function uploadStaticAndRebuiltSettings(includeSettingsJson) {{
 }}
 
 document.addEventListener("DOMContentLoaded", () => {{
-  document.getElementById("lblFwSize").textContent = (PACKAGE.firmwareSize / 1024).toFixed(0) + " KB embedded";
+  document.getElementById("lblFwSize").textContent =
+    "firmware.bin (" + (PACKAGE.firmwareSize / 1024).toFixed(0) + " KB) + spiffs.bin (" + (PACKAGE.spiffsSize / 1024).toFixed(0) + " KB)";
   refreshJsonPreview();
-  logMsg("Offline Field Updater ready — Firmware " + PACKAGE.version + " + " + PACKAGE.staticFiles.length + " Web UI files.");
+  logMsg("Offline Field Updater ready — Firmware " + PACKAGE.version + " + spiffs.bin + " + PACKAGE.staticFiles.length + " Web UI files.");
+  readFromDevice();
 }});
 </script>
 </body>
@@ -869,6 +1031,7 @@ document.addEventListener("DOMContentLoaded", () => {{
     cmd_launcher.write_text(
         '''#!/usr/bin/env python3
 import http.server
+import json
 import socketserver
 import threading
 import urllib.parse
@@ -885,6 +1048,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def do_GET(self):
@@ -894,17 +1058,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path.startswith("/api/read"):
             qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             ip = qs.get("ip", ["192.168.4.1"])[0]
+            result = {"settingsValues": None, "settingsJson": None}
             try:
-                with urllib.request.urlopen(f"http://{ip}/settingsValues", timeout=4) as r:
-                    data = r.read()
+                with urllib.request.urlopen(f"http://{ip}/settingsValues", timeout=3.5) as r:
+                    result["settingsValues"] = r.read().decode("utf-8", errors="replace").strip()
+            except Exception:
+                pass
+            try:
+                with urllib.request.urlopen(f"http://{ip}/settings.json", timeout=3.5) as r:
+                    raw_json = r.read().decode("utf-8", errors="replace").strip()
+                    result["settingsJson"] = json.loads(raw_json)
+            except Exception:
+                pass
+
+            if result["settingsValues"] or result["settingsJson"]:
                 self.send_response(200)
-                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.end_headers()
-                self.wfile.write(data)
-            except Exception as e:
+                self.wfile.write(json.dumps(result).encode("utf-8"))
+            else:
                 self.send_response(502)
                 self.end_headers()
-                self.wfile.write(str(e).encode("utf-8"))
+                self.wfile.write(b"Device unreachable")
             return
         return super().do_GET()
 
@@ -926,8 +1101,10 @@ if __name__ == "__main__":
     )
     os.chmod(cmd_launcher, 0o755)
 
-    print(f"Built Offline Field Updater ({version_str}):")
+    print(f"Built Independent Offline Field Updater ({version_str}):")
     print(f"  - {html_out} ({html_out.stat().st_size // 1024} KB)")
+    print(f"  - {DIST_DIR / 'firmware.bin'} ({fw_bytes.__len__() // 1024} KB)")
+    print(f"  - {DIST_DIR / 'spiffs.bin'} ({spiffs_bytes.__len__() // 1024} KB)")
     print(f"  - {cmd_launcher}")
 
 

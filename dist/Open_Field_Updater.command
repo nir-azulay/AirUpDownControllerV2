@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import http.server
+import json
 import socketserver
 import threading
 import urllib.parse
@@ -16,6 +17,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def do_GET(self):
@@ -25,17 +27,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path.startswith("/api/read"):
             qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             ip = qs.get("ip", ["192.168.4.1"])[0]
+            result = {"settingsValues": None, "settingsJson": None}
             try:
-                with urllib.request.urlopen(f"http://{ip}/settingsValues", timeout=4) as r:
-                    data = r.read()
+                with urllib.request.urlopen(f"http://{ip}/settingsValues", timeout=3.5) as r:
+                    result["settingsValues"] = r.read().decode("utf-8", errors="replace").strip()
+            except Exception:
+                pass
+            try:
+                with urllib.request.urlopen(f"http://{ip}/settings.json", timeout=3.5) as r:
+                    raw_json = r.read().decode("utf-8", errors="replace").strip()
+                    result["settingsJson"] = json.loads(raw_json)
+            except Exception:
+                pass
+
+            if result["settingsValues"] or result["settingsJson"]:
                 self.send_response(200)
-                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.end_headers()
-                self.wfile.write(data)
-            except Exception as e:
+                self.wfile.write(json.dumps(result).encode("utf-8"))
+            else:
                 self.send_response(502)
                 self.end_headers()
-                self.wfile.write(str(e).encode("utf-8"))
+                self.wfile.write(b"Device unreachable")
             return
         return super().do_GET()
 

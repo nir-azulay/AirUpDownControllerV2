@@ -302,6 +302,7 @@ void notFound(AsyncWebServerRequest *request)
         AsyncWebServerResponse *response = request->beginResponse(SPIFFS, request->url(), String(), !isJsonOrText);
         if (response) {
             response->addHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            response->addHeader("Access-Control-Allow-Origin", "*");
             request->send(response);
         } else {
             request->send(404, "text/plain", "Not found");
