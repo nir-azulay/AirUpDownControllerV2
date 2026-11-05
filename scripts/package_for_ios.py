@@ -168,6 +168,10 @@ def main():
     copy_package_to(ios_pkg_dir, firmware_bin, data_dir, manifest)
     copy_package_to(android_pkg_dir, firmware_bin, data_dir, manifest)
 
+    offline_updater_script = ble_dir / "tools" / "build_offline_updater.py"
+    if offline_updater_script.exists():
+        subprocess.run([sys.executable, str(offline_updater_script)], cwd=str(ble_dir), check=False)
+
     print(f"[package_for_ios] Packaged firmware {version_short} (build {build_number}) -> {ios_pkg_dir}")
     print(f"[package_for_ios] Packaged firmware {version_short} (build {build_number}) -> {android_pkg_dir}")
     print(f"[package_for_ios] Embedded version in firmware.bin: {extract_embedded_version(firmware_bin)}")
