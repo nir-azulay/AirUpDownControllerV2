@@ -1,0 +1,21 @@
+scripts/package_for_ios.py
+  s_c6b8b716f084ae::t_bfc160a7727408 171-174
+dist/OfflineFieldUpdater.html
+  s_c6b8b716f084ae::t_6efd895241644a 6,314,358,513
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "f1a1bbac61b9a3e2b86452dcd718d5369701a3f3",
+  "prompts": {},
+  "sessions": {
+    "s_c6b8b716f084ae": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "522e06f5-c391-47e8-8a61-a9e7ff269c45",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
