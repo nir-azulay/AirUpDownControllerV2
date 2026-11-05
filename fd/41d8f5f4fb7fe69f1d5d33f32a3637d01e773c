@@ -1,0 +1,25 @@
+src/main.cpp
+  s_c6b8b716f084ae::t_ebea338b229062 1401-1403,1409
+  s_c6b8b716f084ae::t_31f1880b631c60 20
+  s_c6b8b716f084ae::t_b8086a4694ca9f 181,216-220,224-227
+scripts/package_for_ios.py
+  s_c6b8b716f084ae::t_7b54126cc2cadb 16-23,25,36-45,56,62-67,69-73,75-78,113-116,118-129,133-135
+  s_c6b8b716f084ae::t_42f61779ce9aec 1-15,24,26-35,46-55,57-61,68,74,79-87,105-108,110-112,117,130-132,136-139,142-155,158-167,170-171,174-180
+  s_c6b8b716f084ae::t_0b5c7f34822bb7 88-104,109,140-141,156-157,168-169,172-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "fd41d8f5f4fb7fe69f1d5d33f32a3637d01e773c",
+  "prompts": {},
+  "sessions": {
+    "s_c6b8b716f084ae": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "522e06f5-c391-47e8-8a61-a9e7ff269c45",
+        "model": "gemini-4-argon"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
