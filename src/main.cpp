@@ -17,7 +17,7 @@
 int backupProgress = 0;
 bool wifiInitialized = false;
 int tikingCounter = 0;
-bool upgradeInProgress = false;
+volatile bool upgradeInProgress = false;
 volatile unsigned long lastUpdateChunkMs = 0;
 volatile bool pendingSaveSettings = false;
 volatile bool pendingRestart = false;
@@ -177,8 +177,8 @@ String processor_update(const String &var)
 
 void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final)
 {
-    upgradeInProgress = true;
     lastUpdateChunkMs = millis();
+    upgradeInProgress = true;
 
     if (!index)
     {
@@ -209,17 +209,22 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
 
     if (final)
     {
-        AsyncResponseStream *response = request->beginResponseStream("text/plain");
-        response->addHeader("Access-Control-Allow-Origin", "*");
-        response->print("Ok");
-        request->send(response);
         if (!Update.end(true))
         {
             Update.printError(Serial);
             upgradeInProgress = false;
+            AsyncResponseStream *response = request->beginResponseStream("text/plain");
+            response->setCode(500);
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            response->print("Update failed");
+            request->send(response);
         }
         else
         {
+            AsyncResponseStream *response = request->beginResponseStream("text/plain");
+            response->addHeader("Access-Control-Allow-Origin", "*");
+            response->print("Ok");
+            request->send(response);
             Serial.println("Update complete");
             Serial.flush();
             scheduleRestart(1000);
@@ -1393,12 +1398,15 @@ void BLESync()
 void loop()
 {
     if (upgradeInProgress) {
-        if (millis() - lastUpdateChunkMs > 20000) {
+        unsigned long lastChunk = lastUpdateChunkMs;
+        unsigned long now = millis();
+        if (lastChunk > 0 && (long)(now - lastChunk) > 20000L) {
             if (Update.isRunning()) {
                 Update.abort();
             }
             upgradeInProgress = false;
         } else {
+            delay(20);
             return;
         }
     }
