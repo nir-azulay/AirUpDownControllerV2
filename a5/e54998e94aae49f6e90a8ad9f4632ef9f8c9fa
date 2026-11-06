@@ -1,0 +1,25 @@
+include/version.h
+  s_c6b8b716f084ae::t_328c9bd1cdecd5 3,6,9
+dist/OfflineFieldUpdater.html
+  s_c6b8b716f084ae::t_328c9bd1cdecd5 6,314,358,513
+buildscript_versioning.py
+  s_c6b8b716f084ae::t_328c9bd1cdecd5 8
+versioning
+  s_c6b8b716f084ae::t_328c9bd1cdecd5 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "a5e54998e94aae49f6e90a8ad9f4632ef9f8c9fa",
+  "prompts": {},
+  "sessions": {
+    "s_c6b8b716f084ae": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "522e06f5-c391-47e8-8a61-a9e7ff269c45",
+        "model": "muse-wonder-1.0"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
