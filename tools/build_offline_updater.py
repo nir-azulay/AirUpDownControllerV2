@@ -973,6 +973,21 @@ async function uploadFirmwareOnly() {{
       await new Promise(r => setTimeout(r, 6000));
     }}
 
+    // Builds < 270 have an OTA watchdog race: loop() reads a stale
+    // lastUpdateChunkMs across cores and aborts the flash at the first chunk
+    // (the phone apps prime for the same reason). Send a 1-byte throwaway
+    // upload first so the watchdog timestamp is fresh; its Update.end()
+    // failure is harmless and invisible with no-cors anyway.
+    const buildMatch = connVerText.match(/_(\d+)/);
+    const deviceBuild = buildMatch ? parseInt(buildMatch[1], 10) : null;
+    if (deviceBuild === null || deviceBuild < 270) {{
+      try {{
+        logMsg("Priming OTA watchdog for older firmware (build " + (deviceBuild === null ? "unknown" : deviceBuild) + ")...");
+        await uploadBlobToDevice(baseUrl, "/doUpdate", "update", "prime.bin", new Blob([new Uint8Array([0])], {{ type: "application/octet-stream" }}));
+      }} catch (_) {{}}
+      await new Promise(r => setTimeout(r, 250));
+    }}
+
     logMsg("Uploading Firmware " + PACKAGE.version + " (firmware.bin) to " + baseUrl + "/doUpdate ...");
     const fwBlob = b64ToBlob(PACKAGE.firmwareB64, "application/octet-stream");
     await uploadBlobToDevice(baseUrl, "/doUpdate", "update", "firmware.bin", fwBlob, (pct) => {{

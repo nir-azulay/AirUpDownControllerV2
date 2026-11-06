@@ -186,6 +186,9 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
             request->client()->setRxTimeout(60);
             request->client()->setAckTimeout(60000);
         }
+        // NOTE: WiFi modem sleep must stay enabled while Bluetooth is on —
+        // ESP-IDF aborts ("Should enable WiFi modem sleep when both WiFi and
+        // Bluetooth are enabled") if WIFI_PS_NONE is set with BT running.
         if (Update.isRunning()) {
             Update.abort();
         }
@@ -199,7 +202,11 @@ void handleDoUpdate(AsyncWebServerRequest *request, const String &filename, size
     }
     if (len > 0)
     {
-        if (Update.write(data, len) != len)
+        // NOTE: each 64 KB written triggers a flash block erase in here
+        // (~300 ms) during which this AsyncTCP handler cannot ACK; the apps
+        // pace the upload (3 ms per 1436-byte chunk, 25 ms per 64 KB).
+        size_t written = Update.write(data, len);
+        if (written != len)
         {
             Update.printError(Serial);
             size_t totalSz = Update.size() > 0 ? Update.size() : (content_len > 0 ? content_len : 1);
