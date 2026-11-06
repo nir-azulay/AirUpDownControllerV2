@@ -3,7 +3,10 @@ tm = datetime.datetime.today()
 
 FILENAME_BUILDNO = 'versioning'
 FILENAME_VERSION_H = 'include/version.h'
-version = 'v1.0.' + str(tm.year)[-2:]+('0'+str(tm.month))[-2:]+('0'+str(tm.day))[-2:] + '_'
+# Firmware version is synced to the companion app release version
+# (iOS/Android 2.2.1). Bump this together with the apps on every release.
+RELEASE_VERSION = '2.2.1'
+version = 'v' + RELEASE_VERSION + '_'
 
 build_no = 0
 try:
