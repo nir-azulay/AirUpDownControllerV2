@@ -5,7 +5,7 @@ FILENAME_BUILDNO = 'versioning'
 FILENAME_VERSION_H = 'include/version.h'
 # Firmware version is synced to the companion app release version
 # (iOS/Android 2.2.1). Bump this together with the apps on every release.
-RELEASE_VERSION = '2.2.2'
+RELEASE_VERSION = '2.3.0'
 version = 'v' + RELEASE_VERSION + '_'
 
 build_no = 0
