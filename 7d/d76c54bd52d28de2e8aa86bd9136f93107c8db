@@ -1,0 +1,34 @@
+include/version.h
+  s_c6b8b716f084ae::t_929c3e819ea0aa 3,6,9
+src/main.cpp
+  s_c6b8b716f084ae::t_07e19fb2f06492 206-207
+  s_c6b8b716f084ae::t_00639f48674ddb 208-209
+  s_c6b8b716f084ae::t_2ab589396abd23 189-191
+  s_c6b8b716f084ae::t_3139b5a0b61d37 205
+buildscript_versioning.py
+  s_c6b8b716f084ae::t_0feb6b69ee569f 8
+tools/build_offline_updater.py
+  s_c6b8b716f084ae::t_6f553ef87a6472 976-990
+versioning
+  s_c6b8b716f084ae::t_929c3e819ea0aa 1
+dist/OfflineFieldUpdater.html
+  s_c6b8b716f084ae::t_929c3e819ea0aa 6,314,358
+  s_c6b8b716f084ae::t_363c7f24d0c9c6 513,868-880
+  s_c6b8b716f084ae::t_47078f75fb9b3c 881-882
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.11",
+  "base_commit_sha": "7dd76c54bd52d28de2e8aa86bd9136f93107c8db",
+  "prompts": {},
+  "sessions": {
+    "s_c6b8b716f084ae": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "522e06f5-c391-47e8-8a61-a9e7ff269c45",
+        "model": "muse-wonder-1.0"
+      },
+      "human_author": "Nir Azulay <nir.azulay@gmail.com>"
+    }
+  }
+}
